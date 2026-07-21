@@ -1,0 +1,34 @@
+<svg width="360" height="96" viewBox="0 0 360 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bar" x1="0" y1="0" x2="360" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#242427"></stop>
+      <stop offset="0.5" stop-color="#121214"></stop>
+      <stop offset="1" stop-color="#08080a"></stop>
+    </linearGradient>
+    <linearGradient id="lA" x1="0" y1="10" x2="0" y2="252" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9a9aa0"></stop><stop offset="1" stop-color="#3a3a40"></stop>
+    </linearGradient>
+    <linearGradient id="lB" x1="0" y1="10" x2="0" y2="252" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2c2c31"></stop><stop offset="1" stop-color="#111114"></stop>
+    </linearGradient>
+    <linearGradient id="lC" x1="0" y1="148" x2="0" y2="252" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#66666d"></stop><stop offset="1" stop-color="#242427"></stop>
+    </linearGradient>
+    <linearGradient id="lD" x1="0" y1="148" x2="0" y2="252" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d1d21"></stop><stop offset="1" stop-color="#0b0b0d"></stop>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="360" height="96" rx="16" fill="url(#bar)"></rect>
+
+  <g transform="translate(22,10) scale(0.3)">
+    <path d="M100 10 L62 70 L42 148 L90 148 Z" fill="url(#lA)"></path>
+    <path d="M100 10 L138 70 L158 148 L90 148 Z" fill="url(#lB)"></path>
+    <path d="M90 148 L42 148 L72 232 L100 252 Z" fill="url(#lC)"></path>
+    <path d="M90 148 L158 148 L128 232 L100 252 Z" fill="url(#lD)"></path>
+    <path d="M100 10 L90 148 L100 252" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2" stroke-linejoin="round"></path>
+    <path d="M100 10 L62 70 L42 148 L72 232 L100 252" fill="none" stroke="#ffffff" stroke-opacity="0.26" stroke-width="1.6" stroke-linejoin="round"></path>
+  </g>
+
+  <text x="92" y="56" font-family="&#39;Helvetica Neue&#39;, Arial, sans-serif" font-size="26" font-weight="500" letter-spacing="7" fill="#ececec">OBSIDIAN</text>
+</svg>

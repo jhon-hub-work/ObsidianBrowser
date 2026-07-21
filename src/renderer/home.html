@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Obsidian</title>
+  <link rel="icon" href="../../assets/favicon.svg" />
+  <style>
+    :root {
+      --bg: #08080b; --surface: #131317; --border: #1f1f25;
+      --muted: #74747c; --dim: #a8a8b0; --text: #f2f2f4; --accent: #2563eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      position: relative;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 38px;
+      padding: 40px 24px 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    /* Layered mountain silhouettes, bottom-anchored. Pure CSS so the page
+       stays self-contained and instant. */
+    .ridge {
+      position: absolute;
+      left: 50%; bottom: 0;
+      width: 140%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .ridge.back  { height: 46%; background: #0b0b0f; clip-path: polygon(0 100%, 22% 34%, 44% 100%, 62% 22%, 100% 100%); }
+    .ridge.front { height: 34%; background: #0d0d12; clip-path: polygon(0 100%, 30% 26%, 55% 100%, 78% 40%, 100% 100%); }
+
+    .head, .ask, .grid { position: relative; z-index: 1; }
+
+    .head { text-align: center; }
+    h1 { font-size: 46px; font-weight: 500; letter-spacing: -.02em; }
+    .sub { margin-top: 10px; color: var(--dim); font-size: 24px; font-weight: 400; }
+
+    .ask {
+      display: flex; align-items: center; gap: 12px;
+      width: min(600px, 86vw); height: 56px;
+      padding: 0 8px 0 22px;
+      background: rgba(19,19,23,.72);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(12px);
+      transition: border-color .15s;
+    }
+    .ask:focus-within { border-color: #32323a; }
+    .ask input {
+      flex: 1; min-width: 0;
+      background: none; border: none; outline: none;
+      color: var(--text); font: 400 15px/1 inherit; font-family: inherit;
+    }
+    .ask input::placeholder { color: var(--muted); }
+    .ask button {
+      display: grid; place-items: center;
+      width: 40px; height: 40px; flex: 0 0 40px;
+      border: none; border-radius: 10px;
+      background: var(--accent); color: #fff;
+      font-size: 15px; cursor: pointer;
+      transition: background .15s;
+    }
+    .ask button:hover { background: #1d4ed8; }
+
+    .grid { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 780px; }
+
+    .card {
+      position: relative;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      width: 108px; height: 96px;
+      padding-bottom: 16px;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      color: var(--dim);
+      font-size: 13.5px;
+      text-decoration: none;
+      transition: border-color .18s, transform .18s, color .18s;
+    }
+    .card:hover { border-color: #33333b; color: var(--text); transform: translateY(-2px); }
+
+    /* the colored bloom above each label */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: -30px; left: 50%;
+      width: 62px; height: 62px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: var(--c);
+      filter: blur(17px);
+      opacity: .75;
+    }
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 34px; left: 50%;
+      width: 24px; height: 5px;
+      transform: translateX(-50%);
+      border-radius: 3px;
+      background: var(--c);
+    }
+  </style>
+</head>
+<body>
+  <div class="ridge back"></div>
+  <div class="ridge front"></div>
+
+  <div class="head">
+    <h1 id="greeting">Good morning, Jhon.</h1>
+    <div class="sub">Let's build something great today.</div>
+  </div>
+
+  <form class="ask" id="ask-form">
+    <input id="ask" placeholder="Ask anything... (e.g. design a pricing page, nextjs auth, center div)"
+           spellcheck="false" autocomplete="off" autofocus />
+    <button type="submit" title="Ask">&crarr;</button>
+  </form>
+
+  <div class="grid">
+    <a class="card" style="--c:#6b7280" href="https://github.com">GitHub</a>
+    <a class="card" style="--c:#d97757" href="https://claude.ai">Claude</a>
+    <a class="card" style="--c:#10a37f" href="https://chatgpt.com">ChatGPT</a>
+    <a class="card" style="--c:#2563eb" href="https://vscode.dev">VS Code</a>
+    <a class="card" style="--c:#6b7280" href="https://developer.mozilla.org">Docs</a>
+    <a class="card" style="--c:#6b7280" href="https://notion.so">Notion</a>
+  </div>
+
+  <script>
+    const h = new Date().getHours();
+    document.getElementById('greeting').textContent =
+      `Good ${h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening'}, Jhon.`;
+
+    document.getElementById('ask-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const q = document.getElementById('ask').value.trim();
+      if (q) location.href = 'https://claude.ai/new?q=' + encodeURIComponent(q);
+    });
+  </script>
+</body>
+</html>

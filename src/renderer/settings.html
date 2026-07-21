@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Settings</title>
+  <link rel="icon" href="../../assets/favicon.svg" />
+  <style>
+    :root {
+      --bg: #08080b; --panel: #0d0d10; --surface: #131317; --raised: #1e1e23;
+      --border: #1f1f25; --muted: #74747c; --dim: #a8a8b0; --text: #f2f2f4;
+      --accent: #2563eb; --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .label {
+      color: var(--muted); font-size: 10px; font-weight: 500;
+      letter-spacing: .16em; text-transform: uppercase;
+    }
+
+    /* ---- left nav ---- */
+    nav { display: flex; flex-direction: column; gap: 2px; padding: 24px 12px; background: var(--panel); }
+    nav .label { margin: 0 8px 12px; }
+    nav button {
+      height: 36px; padding: 0 12px; width: 100%;
+      border: none; border-radius: 8px; background: none;
+      color: var(--dim); font: 400 14px/1 inherit; font-family: inherit;
+      text-align: left; cursor: pointer;
+    }
+    nav button:hover { background: var(--surface); color: var(--text); }
+    nav button.active { background: var(--raised); color: var(--text); }
+
+    /* ---- panes ---- */
+    main { overflow-y: auto; padding: 40px 44px 60px; }
+    main::-webkit-scrollbar { width: 10px; }
+    main::-webkit-scrollbar-thumb { background: #24242a; border-radius: 5px; }
+
+    .pane { display: none; max-width: 720px; }
+    .pane.active { display: block; }
+
+    h1 { font-size: 26px; font-weight: 500; letter-spacing: -.01em; margin-bottom: 6px; }
+    .lede { color: var(--muted); margin-bottom: 28px; }
+
+    .card {
+      padding: 18px 20px; margin-bottom: 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    }
+    .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .card p { color: var(--muted); font-size: 13px; }
+
+    .row { display: flex; align-items: center; gap: 18px; }
+    .row > div:first-child { flex: 1; }
+
+    button.btn {
+      height: 34px; padding: 0 16px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--raised); color: var(--text);
+      font: 400 13px/1 inherit; font-family: inherit; cursor: pointer;
+      white-space: nowrap;
+      transition: background .12s, border-color .12s;
+    }
+    button.btn:hover { background: #26262d; border-color: #33333b; }
+    button.btn.primary { background: var(--accent); border-color: var(--accent); }
+    button.btn.primary:hover { background: #1d4ed8; }
+    button.btn.danger { color: #fca5a5; border-color: #3a1f22; background: #1e1416; }
+    button.btn.danger:hover { background: #2a181b; border-color: var(--danger); }
+
+    select {
+      height: 34px; padding: 0 10px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--raised); color: var(--text);
+      font: 400 13px inherit; font-family: inherit; cursor: pointer;
+    }
+
+    .checks { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 14px 0 18px; }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 13px; cursor: pointer; }
+    .check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+    /* ---- history ---- */
+    .search {
+      width: 100%; height: 40px; padding: 0 16px; margin-bottom: 16px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text); font: 400 14px inherit; font-family: inherit;
+      outline: none; user-select: text;
+    }
+    .search:focus { border-color: #33333b; }
+    .search::placeholder { color: var(--muted); }
+
+    .hist { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .hist-day { padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .hist-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 16px; border-bottom: 1px solid #16161a;
+      cursor: pointer;
+    }
+    .hist-item:last-child { border-bottom: none; }
+    .hist-item:hover { background: var(--surface); }
+    .hist-item .t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .hist-item .u { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .hist-item .when { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+
+    .empty { padding: 46px; text-align: center; color: var(--muted); }
+
+    .big { font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+    .big.accent { color: var(--accent); }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      padding: 11px 20px; border-radius: 10px;
+      background: var(--raised); border: 1px solid var(--border);
+      font-size: 13px; opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="label">Settings</span>
+    <button data-pane="history" class="active">History</button>
+    <button data-pane="privacy">Privacy</button>
+    <button data-pane="shield">Ad Blocker</button>
+    <button data-pane="about">About</button>
+  </nav>
+
+  <main>
+    <!-- ================= history ================= -->
+    <section class="pane active" id="pane-history">
+      <h1>History</h1>
+      <p class="lede">Everything you've visited in normal tabs. Private tabs are never recorded.</p>
+
+      <input class="search" id="hist-search" placeholder="Search history..." spellcheck="false" />
+
+      <div class="card row">
+        <div>
+          <h2>Clear browsing history</h2>
+          <p>Removes the list below. Cookies and cache are handled under Privacy.</p>
+        </div>
+        <select id="hist-range">
+          <option value="3600000">Last hour</option>
+          <option value="86400000">Last 24 hours</option>
+          <option value="604800000">Last 7 days</option>
+          <option value="">All time</option>
+        </select>
+        <button class="btn danger" id="hist-clear">Clear</button>
+      </div>
+
+      <div class="hist" id="hist-list"></div>
+    </section>
+
+    <!-- ================= privacy ================= -->
+    <section class="pane" id="pane-privacy">
+      <h1>Privacy</h1>
+      <p class="lede">Control what this browser keeps on disk.</p>
+
+      <div class="card row">
+        <div>
+          <h2>Private tab</h2>
+          <p>Opens a tab on a throwaway session — no history, cookies, or cache survive. <b>Ctrl+Shift+N</b></p>
+        </div>
+        <button class="btn primary" id="go-private">Open private tab</button>
+      </div>
+
+      <div class="card">
+        <h2>Clear browsing data</h2>
+        <p>Pick what to wipe from the normal profile. Signing you out of sites is expected.</p>
+        <div class="checks">
+          <label class="check"><input type="checkbox" value="cookies" checked /> Cookies &amp; sign-ins</label>
+          <label class="check"><input type="checkbox" value="cachestorage" checked /> Cache</label>
+          <label class="check"><input type="checkbox" value="localstorage" /> Local storage</label>
+          <label class="check"><input type="checkbox" value="indexdb" /> IndexedDB</label>
+          <label class="check"><input type="checkbox" value="websql" /> WebSQL</label>
+          <label class="check"><input type="checkbox" value="serviceworkers" /> Service workers</label>
+        </div>
+        <button class="btn danger" id="data-clear">Clear selected data</button>
+      </div>
+    </section>
+
+    <!-- ================= adblock ================= -->
+    <section class="pane" id="pane-shield">
+      <h1>Ad Blocker</h1>
+      <p class="lede">EasyList, EasyPrivacy and uBlock filter lists, applied at the network layer.</p>
+
+      <div class="card">
+        <h2>Blocked this session</h2>
+        <div class="big accent" id="blocked-count">0</div>
+      </div>
+
+      <div class="card">
+        <h2>How it works</h2>
+        <p>Requests are matched against the compiled filter engine before they leave your machine,
+           so trackers never see a connection at all. The engine is cached locally and refreshed
+           on startup.</p>
+      </div>
+    </section>
+
+    <!-- ================= about ================= -->
+    <section class="pane" id="pane-about">
+      <h1>Obsidian</h1>
+      <p class="lede">A personal browser. Built for one user.</p>
+      <div class="card">
+        <h2>Version</h2>
+        <p>0.1.0 &middot; Chromium engine via Electron</p>
+      </div>
+      <div class="card">
+        <h2>Shortcuts</h2>
+        <p>Ctrl+T new tab &middot; Ctrl+Shift+N private tab &middot; Ctrl+W close tab<br />
+           Ctrl+K / Ctrl+L focus omnibox &middot; Ctrl+H history &middot; Ctrl+, settings</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const $$ = s => [...document.querySelectorAll(s)];
+
+    // ---- pane switching ----
+    $$('nav button').forEach(b => {
+      b.onclick = () => {
+        $$('nav button').forEach(x => x.classList.remove('active'));
+        $$('.pane').forEach(p => p.classList.remove('active'));
+        b.classList.add('active');
+        $('#pane-' + b.dataset.pane).classList.add('active');
+      };
+    });
+
+    function toast(msg) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ---- history ----
+    const DAY_FMT = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    const TIME_FMT = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+
+    async function renderHistory() {
+      const entries = await obsidian.history.query($('#hist-search').value);
+      const list = $('#hist-list');
+      list.innerHTML = '';
+
+      if (!entries.length) {
+        list.innerHTML = '<div class="empty">Nothing here yet.</div>';
+        return;
+      }
+
+      let lastDay = null;
+      for (const e of entries) {
+        const day = DAY_FMT.format(e.at);
+        if (day !== lastDay) {
+          lastDay = day;
+          const h = document.createElement('div');
+          h.className = 'hist-day';
+          h.innerHTML = `<span class="label">${day}</span>`;
+          list.append(h);
+        }
+
+        const row = document.createElement('div');
+        row.className = 'hist-item';
+        row.onclick = () => obsidian.tab.open(e.url);
+
+        const t = document.createElement('div');
+        t.className = 't';
+        t.textContent = e.title;
+
+        const u = document.createElement('div');
+        u.className = 'u';
+        u.textContent = e.url;
+
+        const w = document.createElement('div');
+        w.className = 'when';
+        w.textContent = TIME_FMT.format(e.at);
+
+        row.append(t, u, w);
+        list.append(row);
+      }
+    }
+
+    let searchTimer;
+    $('#hist-search').oninput = () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(renderHistory, 140);
+    };
+
+    $('#hist-clear').onclick = async () => {
+      const raw = $('#hist-range').value;
+      await obsidian.history.clear(raw ? Number(raw) : null);
+      await renderHistory();
+      toast('History cleared');
+    };
+
+    // ---- privacy ----
+    $('#go-private').onclick = () => obsidian.tab.openPrivate();
+
+    $('#data-clear').onclick = async () => {
+      const types = $$('#pane-privacy .check input:checked').map(i => i.value);
+      if (!types.length) return toast('Nothing selected');
+      await obsidian.data.clear(types);
+      toast('Browsing data cleared');
+    };
+
+    // ---- adblock ----
+    async function refreshBlocked() {
+      const { blocked } = await obsidian.adblock.stats();
+      $('#blocked-count').textContent = blocked.toLocaleString();
+    }
+
+    renderHistory();
+    refreshBlocked();
+    setInterval(refreshBlocked, 2000);
+  </script>
+</body>
+</html>

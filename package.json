@@ -1,0 +1,35 @@
+{
+  "name": "obsidian-browser",
+  "version": "0.1.0",
+  "description": "Obsidian — a personal, AI-first browser",
+  "main": "src/main/index.js",
+  "scripts": {
+    "dev": "electron .",
+    "icon": "electron tools/make-icon.js",
+    "build": "electron-builder --win"
+  },
+  "author": "Jhon Buerano",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.5.2",
+    "cross-fetch": "^4.1.0",
+    "electron-store": "^10.0.1"
+  },
+  "devDependencies": {
+    "electron": "^38.8.6",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.jhon.obsidian",
+    "productName": "Obsidian",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    }
+  }
+}
