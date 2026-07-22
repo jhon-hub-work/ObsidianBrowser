@@ -210,7 +210,11 @@ flowchart TD
     WM --> SS["SessionStore<br/><i>sole owner of on-disk persistence</i>"]
 ```
 
-Full design rationale: [ARCHITECTURE.md](ARCHITECTURE.md) · [VISION.md](VISION.md)
+Full design rationale: [ARCHITECTURE.md](ARCHITECTURE.md) · [VISION.md](VISION.md) · [Decision records](docs/adr/)
+
+The table below summarizes the decisions. The reasoning — including the alternatives that were
+rejected and why — lives in [`docs/adr/`](docs/adr/), which is append-only so it cannot drift as the
+code changes.
 
 ---
 

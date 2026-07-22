@@ -1,0 +1,57 @@
+# Architecture Decision Records
+
+An ADR records **one decision, with the context that forced it and the alternatives that were
+rejected** — at the moment it was made.
+
+## Why these exist alongside VISION and ARCHITECTURE
+
+[VISION.md](../../VISION.md) states the principles. [ARCHITECTURE.md](../../ARCHITECTURE.md)
+states the current design. Both describe the system as it stands now, and both get edited as it
+changes.
+
+Neither can answer *"why not the other way?"* — and that is the question a future maintainer (or a
+future me) actually asks before undoing something. Rejected alternatives are the most expensive
+knowledge in a project and the first thing lost.
+
+ADRs are therefore **append-only**. They are never edited to match new reality. When a decision is
+overturned, a new ADR supersedes the old one and the old one stays, marked. That immutability is the
+whole value: a document that can't drift is a document you can trust years later.
+
+## Rules
+
+1. One decision per record. If it needs "and", it is two records.
+2. Numbered sequentially, never renumbered.
+3. Status is one of: `Accepted`, `Superseded by ADR-XXXX`, `Deprecated`.
+4. Never rewrite an accepted ADR. Supersede it.
+5. Record the alternatives seriously — a rejected option described weakly is not a record, it is a defence.
+
+## Index
+
+| # | Decision | Status | Date |
+|---|---|---|---|
+| [0001](0001-browser-first.md) | AI is the topmost layer, never the foundation | Accepted | 2026-07-21 |
+| [0002](0002-private-browsing-as-a-window.md) | Private browsing is a window, not a tab | Accepted | 2026-07-22 |
+| [0003](0003-window-ownership.md) | The application layer owns windows | Accepted | 2026-07-22 |
+| [0004](0004-workspace-isolation.md) | Workspaces isolate via Chromium session partitions | Accepted | 2026-07-21 |
+
+## Template
+
+```markdown
+# ADR-XXXX: <decision, stated as a claim>
+
+- **Status:** Accepted
+- **Date:** YYYY-MM-DD
+- **Milestone:** <n — name>
+
+## Context
+What was true that forced a decision. Constraints, not preferences.
+
+## Decision
+What was chosen, stated plainly.
+
+## Alternatives considered
+Each option, and the specific reason it lost. Argue them honestly.
+
+## Consequences
+What this makes easy, what it makes hard, and what it forecloses.
+```

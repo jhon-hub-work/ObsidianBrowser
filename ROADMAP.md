@@ -15,6 +15,19 @@ Stability and session restore.
 Also present from earlier foundation work: tabbed Chromium browsing, Windows-native window,
 command palette, AI-aware address bar, ad/tracker blocking, private tabs, and settings.
 
+### ✅ Window system (v0.2)
+Multi-window support, ahead of the milestone that needs it.
+- Per-window context map; every IPC handler and shortcut resolves its sender's window
+- The application layer owns windows — see [ADR-0003](docs/adr/0003-window-ownership.md)
+- Groundwork for the Workspace Engine, composed into rather than rewritten
+
+### ✅ Private architecture (v0.2)
+Private browsing as a structural boundary rather than a styled tab.
+- Private browsing is a separate window with no identity in its chrome
+- Dedicated `obsidian://private` landing page stating capabilities *and* limits
+- Nothing persisted; no `History` instance injected at all
+- Rationale in [ADR-0002](docs/adr/0002-private-browsing-as-a-window.md)
+
 ## Upcoming
 
 ### Milestone 2 — Workspace Engine
@@ -52,4 +65,26 @@ Built-in, no extensions.
 Chrome Sync, extension ecosystem, cloud accounts, themes, mobile.
 These are postponed until the browser itself is exceptional.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the permanent design principles behind this roadmap.
+## Definition of done
+
+A milestone is not finished when it works. It is finished when the next person to touch it — six
+months from now, with no memory of this — can understand it without reading the diff.
+
+A milestone is complete when all of the following are true:
+
+1. **It ships a browser that is stable enough for daily use.** No milestone leaves the browser worse than it found it.
+2. **`CHANGELOG.md` records what changed**, under Added / Changed / Fixed, with a version and a date.
+3. **`ROADMAP.md` marks it complete** and the next milestone is unambiguous.
+4. **Any decision with a rejected alternative has an ADR** in [`docs/adr/`](docs/adr/). If there was no real alternative, there was no decision — skip it.
+5. **`README.md` reflects what is actually shipped**, and explicitly labels anything visible in the UI that is a designed-ahead shell.
+6. **`VISION.md` / `ARCHITECTURE.md` are updated only if a principle genuinely changed.** Restating existing principles in new words is documentation debt, not documentation.
+
+Point 6 is the one that keeps this set honest: more documents saying the same thing is worse than
+fewer, because they drift apart and then none of them can be trusted.
+
+Implementation begins only after the previous milestone's documentation is merged.
+
+---
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the permanent design principles behind this roadmap, and
+[`docs/adr/`](docs/adr/) for the record of individual decisions and what they rejected.

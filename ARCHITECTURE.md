@@ -92,6 +92,22 @@ user's machine unless the user explicitly opts in. Privacy comes before convenie
   approaches (not embedded-browser workarounds).
 - Cloud AI providers remain optional; the browser and its local intelligence must stand alone.
 
+## Decision records
+
+This document describes the design **as it currently stands** and is edited as the design evolves.
+It deliberately does not record what was rejected along the way.
+
+That reasoning lives in [`docs/adr/`](docs/adr/), which is append-only: an accepted ADR is never
+rewritten, only superseded. When this file and an ADR disagree, this file describes today and the ADR
+describes the decision that produced it.
+
+| # | Decision |
+|---|---|
+| [0001](docs/adr/0001-browser-first.md) | AI is the topmost layer, never the foundation |
+| [0002](docs/adr/0002-private-browsing-as-a-window.md) | Private browsing is a window, not a tab |
+| [0003](docs/adr/0003-window-ownership.md) | The application layer owns windows |
+| [0004](docs/adr/0004-workspace-isolation.md) | Workspaces isolate via Chromium session partitions |
+
 ---
 
 *These are architectural decisions only. Implementation belongs to future milestones.*
