@@ -91,6 +91,15 @@ who you are here" is literally true of the UI and not just the storage layer. Th
 what the mode does, what it explicitly does *not* do, and why it exists — a private mode that
 overpromises is a security problem, not a feature.
 
+> **On what these screenshots show.** The workspace list, the assistant rail, and the model selector
+> are **designed-ahead UI shells, not working features** — the engines behind them are Milestones
+> 2–6 and are not built. They ship in the interface on purpose: designing the surface first is what
+> exposed the ownership questions the Workspace Engine had to answer (who owns switching, what
+> isolation actually means, where session persistence lives) before a line of it was written. The
+> command palette already labels those actions "soon", and the roadmap below tracks what is real.
+> Everything else pictured — tabs, pinned tabs, session restore, command palette, settings, ad
+> blocking, private windows — is shipped and working.
+
 <!-- OPTIONAL UPGRADE: reshoot settings.png on the "Ad Blocker" tab — the trackers-blocked -->
 <!-- stat evidences network-layer filtering better than an empty history state does.       -->
 <!-- tabs.png             — tab strip with pinned tabs and the right-click tab menu -->
