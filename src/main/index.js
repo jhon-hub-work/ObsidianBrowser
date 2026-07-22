@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, shell, screen } = require('electron');
 const path = require('path');
-const { TabManager, SETTINGS, NORMAL_PARTITION, PRIVATE_PARTITION } = require('./tabs');
+const { TabManager, SETTINGS, PRIVATE_PARTITION } = require('./tabs');
+const { WorkspaceManager } = require('./workspaces');
 const { enableAdblock } = require('./adblock');
 const { History } = require('./history');
 const { SessionStore } = require('./session-store');
@@ -22,7 +23,24 @@ if (!hasLock) app.quit();
 // TabManager; nothing below this layer knows how many windows exist.
 const wins = new Map(); // BrowserWindow.id -> { win, tabs, incognito, booted }
 let mainCtx = null;     // the persistent, normal-profile window
-let adblock, history, store;
+let adblock, history, store, workspaces;
+
+// Partitions that already have UA rules and ad blocking applied. applyToSession
+// registers an onBeforeSendHeaders listener, so calling it twice on one session
+// would double-rewrite every request header.
+const preparedPartitions = new Set();
+
+// Handed to WorkspaceManager so it can obtain a browsing session without ever
+// touching Electron itself. See workspaces.js and ADR-0003.
+function prepareSession(partition) {
+  const ses = session.fromPartition(partition);
+  if (!preparedPartitions.has(partition)) {
+    applyToSession(ses);
+    adblock?.enableFor(ses); // a workspace created before adblock loads stays unblocked, not broken
+    preparedPartitions.add(partition);
+  }
+  return ses;
+}
 
 // --- context lookup --------------------------------------------------------
 
@@ -116,7 +134,16 @@ async function createWindow({ incognito = false } = {}) {
     query: incognito ? { private: '1' } : {}
   });
 
-  const tabs = new TabManager(win, incognito ? null : history, incognito ? () => {} : saveSession);
+  // A private window belongs to no workspace — it browses the throwaway
+  // partition and is deliberately outside the workspace system entirely.
+  const partition = incognito ? PRIVATE_PARTITION : workspaces.partition();
+
+  const tabs = new TabManager(
+    win,
+    incognito ? null : history,
+    incognito ? () => {} : saveSession,
+    { partition }
+  );
   const ctx = { win, tabs, incognito, booted: false };
   wins.set(win.id, ctx);
   if (!incognito) mainCtx = ctx;
@@ -193,17 +220,24 @@ if (hasLock) {
   app.whenReady().then(async () => {
     history = new History(app.getPath('userData'));
     store = new SessionStore(app.getPath('userData'));
+    workspaces = new WorkspaceManager({ store, prepareSession });
 
-    const normal = session.fromPartition(NORMAL_PARTITION);
+    // The default workspace resolves to the original persist:obsidian
+    // partition, so existing cookies and logins survive the introduction of
+    // workspaces untouched. Only workspaces created later get persist:ws-<id>.
+    const normal = session.fromPartition(workspaces.partition());
     const priv = session.fromPartition(PRIVATE_PARTITION);
-    applyToSession(normal);
-    applyToSession(priv);
 
     try {
       adblock = await enableAdblock([normal, priv], app.getPath('userData'));
     } catch (err) {
       console.error('[adblock] failed to load, continuing unblocked:', err.message);
     }
+
+    // Applies UA rules and records both as prepared. Ad blocking is already
+    // attached above; enableFor is idempotent.
+    prepareSession(workspaces.partition());
+    prepareSession(PRIVATE_PARTITION);
 
     await createWindow();
 
@@ -310,13 +344,14 @@ ipcMain.handle('history:query', (_e, search) => history.query(search));
 ipcMain.handle('history:clear', (_e, sinceMs) => { history.clear(sinceMs); return true; });
 
 // Clear cookies, cache, storage. `sinceMs` null means everything.
+// Scoped to the ACTIVE workspace — clearing data must never reach across an
+// isolation boundary and sign the user out of a workspace they weren't in.
 ipcMain.handle('data:clear', async (_e, { types, sinceMs }) => {
   const opts = { storages: types };
   if (sinceMs != null) opts.origin = undefined; // Electron clears all origins
-  await session.fromPartition(NORMAL_PARTITION).clearStorageData(opts);
-  if (types.includes('cachestorage')) {
-    await session.fromPartition(NORMAL_PARTITION).clearCache();
-  }
+  const ses = session.fromPartition(workspaces.partition());
+  await ses.clearStorageData(opts);
+  if (types.includes('cachestorage')) await ses.clearCache();
   return true;
 });
 

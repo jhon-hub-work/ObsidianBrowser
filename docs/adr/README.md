@@ -28,6 +28,8 @@ a document that can't drift is a document you can trust years later.
 | [0002](0002-private-browsing-as-a-window.md) | Private browsing is a window, not a tab | Accepted | 2026-07-22 |
 | [0003](0003-window-ownership.md) | The application layer owns windows | Accepted | 2026-07-22 |
 | [0004](0004-workspace-isolation.md) | Workspaces isolate via Chromium session partitions | Accepted | 2026-07-21 |
+| [0005](0005-workspace-identity.md) | Workspace ids are immutable UUIDs; names are metadata | Accepted | 2026-07-22 |
+| [0006](0006-legacy-partition-reuse.md) | The default workspace keeps the original partition | Accepted | 2026-07-22 |
 
 ## Template
 

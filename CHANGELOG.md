@@ -3,6 +3,25 @@
 All notable changes to Obsidian Browser are recorded here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Milestone 2 (Workspace Engine) in progress — steps 1–2 of 5.
+
+### Added
+- **`WorkspaceManager`** — single authority for the active workspace and its partition. Deliberately does not `require('electron')`, so it cannot create a window even by accident (see [ADR-0003](docs/adr/0003-window-ownership.md)).
+- Workspace lifecycle events (`created`, `renamed`, `removed`, `activated`) on a plain `EventEmitter`. Milestones 3–6 subscribe rather than modifying `WorkspaceManager`. No subscribers yet — the seam exists, the infrastructure does not.
+- Workspace identity: immutable UUIDs with editable names, stored apart from runtime tab state ([ADR-0005](docs/adr/0005-workspace-identity.md)).
+- `adblock.enableFor(session)` — workspaces create partitions at runtime, and a fixed session list would have left new workspaces silently unblocked.
+
+### Changed
+- `TabManager` receives its partition instead of assuming one. Private tabs still use the throwaway partition regardless — they belong to no workspace.
+- `data:clear` is scoped to the active workspace, so clearing data cannot reach across an isolation boundary.
+- `SessionStore` migrates additively **without a `VERSION` bump** — bumping would make the loader reject every existing `session.json` and discard the user's tabs.
+
+### Notes
+- The default workspace keeps browsing `persist:obsidian` rather than moving to `persist:ws-default`. Renaming the partition would have signed the user out of every site ([ADR-0006](docs/adr/0006-legacy-partition-reuse.md)).
+- Not yet implemented: runtime workspace switching, one `TabManager` per workspace, hot/cold lifecycle, and the sidebar wiring. The sidebar remains a shell.
+
 ## [0.2.0] — Private windows — 2026-07-22
 
 The browser learns to open more than one window, and private browsing becomes a real boundary

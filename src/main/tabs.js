@@ -27,10 +27,16 @@ let nextId = 1;
 
 class TabManager {
   // onChange fires after any state change that should be persisted.
-  constructor(win, history, onChange = () => {}) {
+  //
+  // `partition` is the session this manager's normal tabs browse in. It is
+  // supplied rather than assumed, because a workspace owns its partition and a
+  // TabManager belongs to exactly one workspace (ADR-0004). Private tabs always
+  // use PRIVATE_PARTITION regardless — they belong to no workspace at all.
+  constructor(win, history, onChange = () => {}, { partition = NORMAL_PARTITION } = {}) {
     this.win = win;
     this.history = history;
     this.onChange = onChange;
+    this.partition = partition;
     this.tabs = new Map(); // id -> tab
     this.activeId = null;
     this.restoring = false; // suppress churn while rebuilding a saved session
@@ -51,7 +57,7 @@ class TabManager {
 
     const view = new WebContentsView({
       webPreferences: {
-        partition: incognito ? PRIVATE_PARTITION : NORMAL_PARTITION,
+        partition: incognito ? PRIVATE_PARTITION : this.partition,
         preload: path.join(__dirname, '..', 'preload', preload),
         sandbox: true,
         contextIsolation: true,

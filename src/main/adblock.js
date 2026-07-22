@@ -17,23 +17,33 @@ async function enableAdblock(sessions, userDataPath) {
     write: fs.promises.writeFile
   });
 
+  // Every session the blocker is attached to. Workspaces create partitions at
+  // runtime, so this grows after boot — a fixed list would silently leave new
+  // workspaces unblocked.
+  const attached = new Set();
+
   // Upstream bug: BlockingContext.enable() calls ipcMain.handle() with
   // GLOBAL channel names, so enabling a second session throws "second
   // handler". The handlers are identical across sessions (they delegate to
   // the same blocker), so dropping them before each enable is lossless.
-  for (const ses of sessions) {
+  const enableFor = ses => {
+    if (attached.has(ses)) return; // re-enabling would re-register the handlers
     ipcMain.removeHandler('@ghostery/adblocker/inject-cosmetic-filters');
     ipcMain.removeHandler('@ghostery/adblocker/is-mutation-observer-enabled');
     blocker.enableBlockingInSession(ses);
-  }
+    attached.add(ses);
+  };
+
+  for (const ses of sessions) enableFor(ses);
 
   const stats = { blocked: 0 };
   blocker.on('request-blocked', () => { stats.blocked++; });
 
   return {
     stats,
-    disable: () => sessions.forEach(s => blocker.disableBlockingInSession(s)),
-    enable: () => sessions.forEach(s => blocker.enableBlockingInSession(s))
+    enableFor,
+    disable: () => attached.forEach(s => blocker.disableBlockingInSession(s)),
+    enable: () => attached.forEach(s => blocker.enableBlockingInSession(s))
   };
 }
 
