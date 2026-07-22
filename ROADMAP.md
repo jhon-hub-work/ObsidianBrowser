@@ -77,9 +77,9 @@ A milestone is complete when all of the following are true:
 3. **`ROADMAP.md` marks it complete** and the next milestone is unambiguous.
 4. **Any decision with a rejected alternative has an ADR** in [`docs/adr/`](docs/adr/). If there was no real alternative, there was no decision — skip it.
 5. **`README.md` reflects what is actually shipped**, and explicitly labels anything visible in the UI that is a designed-ahead shell.
-6. **`VISION.md` / `ARCHITECTURE.md` are updated only if a principle genuinely changed.** Restating existing principles in new words is documentation debt, not documentation.
+6. **Documentation obeys the Single Question Rule** — every document answers exactly one architectural question, and no document is added that duplicates one already owned. See [docs/README.md](docs/README.md) for the rule and the ownership map.
 
-Point 6 is the one that keeps this set honest: more documents saying the same thing is worse than
+Point 6 is the one that keeps this set honest. More documents saying the same thing is worse than
 fewer, because they drift apart and then none of them can be trusted.
 
 Implementation begins only after the previous milestone's documentation is merged.

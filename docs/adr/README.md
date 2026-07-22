@@ -3,19 +3,14 @@
 An ADR records **one decision, with the context that forced it and the alternatives that were
 rejected** — at the moment it was made.
 
-## Why these exist alongside VISION and ARCHITECTURE
+## The question these own
 
-[VISION.md](../../VISION.md) states the principles. [ARCHITECTURE.md](../../ARCHITECTURE.md)
-states the current design. Both describe the system as it stands now, and both get edited as it
-changes.
+**"Why was it decided this way, and what was rejected?"** — see the
+[documentation map](../README.md) for how that fits alongside the other documents.
 
-Neither can answer *"why not the other way?"* — and that is the question a future maintainer (or a
-future me) actually asks before undoing something. Rejected alternatives are the most expensive
-knowledge in a project and the first thing lost.
-
-ADRs are therefore **append-only**. They are never edited to match new reality. When a decision is
-overturned, a new ADR supersedes the old one and the old one stays, marked. That immutability is the
-whole value: a document that can't drift is a document you can trust years later.
+ADRs are **append-only**. They are never edited to match new reality. When a decision is overturned,
+a new ADR supersedes the old one and the old one stays, marked. That immutability is the whole value:
+a document that can't drift is a document you can trust years later.
 
 ## Rules
 
