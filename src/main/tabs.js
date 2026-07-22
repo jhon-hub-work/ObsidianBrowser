@@ -5,6 +5,9 @@ const { UA } = require('./ua');
 
 const NEW_TAB = 'obsidian://home';
 const SETTINGS = 'obsidian://settings';
+// Private tabs get their own landing page — the normal home greets you by name
+// and lists your workspaces, which is precisely what a private session must not do.
+const PRIVATE_HOME = 'obsidian://private';
 
 // Google sign-in happens IN-APP: ua.js presents a Firefox identity on
 // accounts.google.com only, which Google accepts without client-hint checks.
@@ -14,7 +17,11 @@ const NORMAL_PARTITION = 'persist:obsidian';
 const PRIVATE_PARTITION = 'obsidian-private';
 
 // Map an internal obsidian:// url to its local file.
-const INTERNAL_FILES = { [NEW_TAB]: 'home.html', [SETTINGS]: 'settings.html' };
+const INTERNAL_FILES = {
+  [NEW_TAB]: 'home.html',
+  [SETTINGS]: 'settings.html',
+  [PRIVATE_HOME]: 'private.html'
+};
 
 let nextId = 1;
 
@@ -33,6 +40,10 @@ class TabManager {
 
   create(url = NEW_TAB, { activate = true, incognito = false, pinned = false, scroll = 0 } = {}) {
     const id = nextId++;
+
+    // A private tab opening "home" must land on the private explainer instead —
+    // the normal home page is personalized and belongs to the persistent profile.
+    if (incognito && url === NEW_TAB) url = PRIVATE_HOME;
 
     // Internal pages get a privileged preload; the web gets the sandboxed one.
     const internal = INTERNAL_FILES[url];
@@ -345,6 +356,6 @@ function toURL(input) {
 
 module.exports = {
   TabManager, toURL,
-  NEW_TAB, SETTINGS,
+  NEW_TAB, SETTINGS, PRIVATE_HOME,
   NORMAL_PARTITION, PRIVATE_PARTITION
 };

@@ -295,11 +295,70 @@ html, body {
 .tab.pinned { flex: 0 0 auto; width: 40px; padding: 0; justify-content: center; }
 .tab.pinned .title, .tab.pinned .close { display: none; }
 
-/* private tabs read as visually distinct at a glance */
-.tab.private { border-style: dashed; border-color: #3b2f56; }
-.tab.private.active { background: #17131f; border-color: #4c3d70; }
+/* Private tabs must be unmistakable, not merely different — the whole point of
+   the mode is that the user knows which one they're typing into. A tinted fill
+   plus a solid accent border reads at a glance even when the tab is inactive. */
+.tab.private {
+  border-style: solid;
+  border-color: #5b45a8;
+  background: #17112e;
+  color: #b9a7ee;
+}
+.tab.private:hover { background: #1d1639; color: #cbbcf5; }
+.tab.private.active {
+  background: #241a47;
+  border-color: #8b6cf6;
+  color: #e6dcff;
+}
 
-#topbar.private .omnibox { border-color: #4c3d70; background: #14101c; }
+/* A marker dot rides ahead of the favicon so pinned private tabs — which
+   collapse to favicon-only and hide their title — stay identifiable too. */
+.tab.private::before {
+  content: "";
+  flex: 0 0 6px;
+  width: 6px; height: 6px;
+  margin-right: -4px;
+  border-radius: 50%;
+  background: #a78bfa;
+}
+.tab.private.pinned { width: 46px; }
+
+#topbar.private .omnibox {
+  border-color: #8b6cf6;
+  background: #17112e;
+}
+
+/* --- private window ------------------------------------------------------
+   A private window is a whole window, not a tinted tab, so the chrome itself
+   shifts violet. The sidebar carries a standing explanation instead of the
+   account, because the identity elements are removed from the DOM entirely. */
+body.private-window { background: #0d0a16; }
+body.private-window #sidebar { background: #120d22; border-right-color: #2a2145; }
+body.private-window #topbar,
+body.private-window #tabbar { background: #0f0b1c; }
+body.private-window #aside { background: #120d22; border-left-color: #2a2145; }
+
+.private-note {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 6px 4px;
+  padding: 14px;
+  border: 1px solid #2e2450;
+  border-radius: 12px;
+  background: #17112e;
+}
+.private-note b {
+  color: #c4b5fd;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.private-note span {
+  color: #8c81ad;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
 
 .private-pill {
   display: none;

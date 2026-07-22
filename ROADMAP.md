@@ -33,11 +33,23 @@ Accumulated long-term knowledge.
 - Dedicated, independent knowledge store
 - Scoped: global (you) + per-workspace namespaces, isolated by default
 
-### Milestone 5 — AI Actions
+### Milestone 5 — Intent Engine
+Understands what the developer is trying to accomplish, built on accumulated context and knowledge.
+
+### Milestone 6 — AI Actions
 Built-in, no extensions.
 - Summarize, explain, rewrite, explain code, review — acting on accumulated context
+- Runs through a **replaceable AI provider** (no vendor baked in; cloud optional)
+
+## Longer-term goals
+
+- Become a complete daily-driver browser replacement
+- Google OAuth compatibility, solved with supported approaches (not embedded-browser workarounds)
+- Optional cloud AI providers — the browser and its local intelligence must stand alone
 
 ## Deferred (intentionally not on the roadmap yet)
 
-Google login compatibility, Chrome Sync, extension ecosystem, cloud accounts, themes, mobile.
+Chrome Sync, extension ecosystem, cloud accounts, themes, mobile.
 These are postponed until the browser itself is exceptional.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the permanent design principles behind this roadmap.

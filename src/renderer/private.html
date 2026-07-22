@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>Private</title>
+  <link rel="icon" href="../../assets/favicon.svg" />
+  <style>
+    :root {
+      --bg: #0d0a16;
+      --surface: #17112e;
+      --border: #2e2450;
+      --accent: #a78bfa;
+      --text: #e9e4f7;
+      --dim: #b0a4cf;
+      --muted: #7b719c;
+    }
+
+    * { box-sizing: border-box; }
+
+    /* Chromium's default scrollbar is light and reads as a bright seam against
+       the dark page. Internal pages style their own. */
+    ::-webkit-scrollbar { width: 11px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      border: 3px solid transparent;
+      border-radius: 8px;
+      background: #2e2450;
+      background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: #443668; background-clip: content-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.65 "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    /* A soft violet bloom, so the page reads as "different mode" before a
+       single word is read. */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(58% 44% at 50% 0%, #2a1d52 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    main {
+      position: relative;
+      max-width: 660px;
+      margin: 0 auto;
+      padding: 84px 32px 64px;
+    }
+
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 54px; height: 54px;
+      margin-bottom: 26px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      background: var(--surface);
+      color: var(--accent);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 27px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+    }
+
+    .lede {
+      margin: 0 0 40px;
+      max-width: 52ch;
+      color: var(--dim);
+    }
+
+    .label {
+      display: block;
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      padding: 22px 24px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+    .card + .label { margin-top: 34px; }
+
+    ul { margin: 0; padding: 0; list-style: none; }
+    li { display: flex; gap: 12px; padding: 9px 0; }
+    li + li { border-top: 1px solid rgba(255,255,255,.04); }
+
+    .ico { flex: 0 0 16px; margin-top: 3px; color: var(--accent); }
+    .card.limits .ico { color: #d98a56; }
+
+    li b { display: block; font-weight: 600; font-size: 14.5px; }
+    li span { color: var(--dim); font-size: 13.5px; }
+
+    .why {
+      margin-top: 34px;
+      padding-left: 16px;
+      border-left: 2px solid var(--border);
+      color: var(--dim);
+      font-size: 14px;
+    }
+    .why b { color: var(--text); font-weight: 600; }
+
+    footer {
+      margin-top: 40px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+        <path d="M3 12h18" />
+        <path d="M6 12l1.5-4.5A2 2 0 0 1 9.4 6h5.2a2 2 0 0 1 1.9 1.5L18 12" />
+        <circle cx="7" cy="15.5" r="2.5" /><circle cx="17" cy="15.5" r="2.5" />
+      </svg>
+    </div>
+
+    <h1>You're browsing privately</h1>
+    <p class="lede">
+      This window runs on a throwaway profile. Obsidian doesn't know who you are here — no account,
+      no workspaces, no history. Close the window and everything in it is gone.
+    </p>
+
+    <span class="label">What this window does</span>
+    <div class="card">
+      <ul>
+        <li>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 6 9 17l-5-5"/></svg>
+          <div>
+            <b>Keeps no history</b>
+            <span>Pages you open here are never written to your history or your Core Memory.</span>
+          </div>
+        </li>
+        <li>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 6 9 17l-5-5"/></svg>
+          <div>
+            <b>Uses a separate identity</b>
+            <span>Its own cookies, logins, and cache — isolated from your normal profile, and discarded on close.</span>
+          </div>
+        </li>
+        <li>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 6 9 17l-5-5"/></svg>
+          <div>
+            <b>Forgets on close</b>
+            <span>Private windows are never saved and never restored when Obsidian reopens.</span>
+          </div>
+        </li>
+        <li>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 6 9 17l-5-5"/></svg>
+          <div>
+            <b>Still blocks trackers</b>
+            <span>Ad and tracker filtering stays on here, exactly as it is in a normal window.</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <span class="label">What it does not do</span>
+    <div class="card limits">
+      <ul>
+        <li>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>
+          <div>
+            <b>It doesn't make you anonymous</b>
+            <span>Your employer, your school, your network administrator, and your internet provider can still see where you go.</span>
+          </div>
+        </li>
+        <li>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>
+          <div>
+            <b>Sites still know it's a visit</b>
+            <span>Any site you sign in to knows exactly who you are, private window or not.</span>
+          </div>
+        </li>
+        <li>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>
+          <div>
+            <b>Downloads outlive the window</b>
+            <span>Files you save stay on your computer after this window closes.</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <p class="why">
+      <b>Why this mode exists.</b> Obsidian is built to accumulate context — it remembers your work
+      so you don't have to. That's the whole point of it, and it's exactly wrong for some sessions:
+      a client's account, a second login, a search you'd rather not have shape everything that comes
+      after. Private windows are the deliberate off-switch. Nothing observed here becomes knowledge.
+    </p>
+
+    <footer>Ctrl + Shift + N opens another private window · Closing this window discards its session</footer>
+  </main>
+</body>
+</html>

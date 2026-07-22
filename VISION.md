@@ -6,9 +6,12 @@ Browsers were built to consume the web. For people who *build* — developers, c
 the browser is where the work happens, yet it does nothing to help the work. Context is scattered
 across tabs, lost on restart, and never understood. Every session starts from zero.
 
-Obsidian exists to change that. It is a browser designed around work: keeping projects, tools, and
-context in one quiet, fast, keyboard-first environment — and, over time, growing into a system that
-understands what you are working on.
+Obsidian exists to change that. It is a **workspace-first browser that accumulates engineering
+knowledge over time** — keeping projects, tools, and context in one quiet, fast, keyboard-first
+environment, and growing into a system that understands what you are working on.
+
+Obsidian is *not* an AI browser. It is a browser, first and always, that happens to get smarter the
+longer you use it.
 
 ## The long-term vision
 
@@ -24,25 +27,23 @@ retrieve. This is a system that learns *about you and your work*, not a model th
 
 ## Philosophy
 
-These principles guide every decision. When a choice is unclear, return here.
+Seven principles guide every decision. When a choice is unclear, they win — in order.
 
-### Browser first
-Obsidian must always be a fast, reliable, fully functional web browser. Stability and browsing
-performance come before every AI feature. If AI ever slows down browsing, the AI is wrong.
+1. **Browser first.** Obsidian must always be a fast, reliable, fully functional web browser.
+   If AI ever slows down browsing, the AI is wrong.
+2. **Workspace first.** Workspaces — not tabs or bookmarks — are the primary way work is organized.
+3. **Performance before features.** Responsiveness and low memory use outrank any new capability.
+4. **Context before conversation.** Obsidian becomes context-aware *before* it becomes
+   conversational — understanding pages, projects, and workspaces, and acting on that understanding.
+   Useful actions over an open chat window.
+5. **Knowledge before model retraining.** Long-term intelligence comes from an accumulating, scoped
+   knowledge base the model reads from — not from retraining a model. Knowledge is the durable
+   substrate; the model is a stateless reasoning engine over it.
+6. **Privacy before convenience.** Knowledge stays optional, transparent, exportable, and deletable.
+7. **Local-first. Cloud optional.** Everything works on the user's machine; cloud is never required.
 
-### AI second
-AI is additive, never foundational. The browser must be excellent and usable every day *without*
-any AI at all. Intelligence is layered on top of a solid browser — never the other way around.
-
-### Context over conversation
-The goal is not another chat window. Obsidian should become **context-aware before it becomes
-conversational** — understanding pages, projects, and workspaces, and acting on that understanding.
-Useful actions over open-ended dialogue.
-
-### Knowledge over model retraining
-Long-term intelligence comes from an accumulating, scoped knowledge base — global to you, and
-isolated per workspace — that the model reads from. Knowledge is the durable substrate; the model
-is a stateless reasoning engine over it.
+AI is additive, never foundational — layered on top of a solid browser, never the other way around.
+The concrete system design that follows from these principles lives in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Who it's for
 

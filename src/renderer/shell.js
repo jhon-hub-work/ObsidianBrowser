@@ -1,5 +1,11 @@
 const $ = sel => document.querySelector(sel);
 
+// Main passes this on the window URL. A private window renders the same shell
+// with every trace of the signed-in identity removed — no account, no pinned
+// links, no workspaces. "Obsidian doesn't know who you are here" has to be
+// literally true of the chrome, not just of the session partition.
+const IS_PRIVATE = new URLSearchParams(location.search).get('private') === '1';
+
 // --- nav data --------------------------------------------------------------
 
 const PINNED = [
@@ -44,6 +50,22 @@ function navItem(label, icon, onClick, active = false) {
 }
 
 function renderNav() {
+  // A private window has no identity to show. Bail before anything personal is
+  // ever put in the DOM — hiding it with CSS would still leave it there.
+  if (IS_PRIVATE) {
+    document.body.classList.add('private-window');
+    $('.profile')?.remove();   // name + plan + avatar are the signed-in identity
+    $('.avatar')?.remove();
+    $('.today')?.remove();     // focus/session stats belong to the normal profile
+    $('.side-scroll').innerHTML =
+      '<div class="private-note">'
+      + '<b>Private window</b>'
+      + '<span>No account. No workspaces. No history.</span>'
+      + '<span>Everything here is discarded when this window closes.</span>'
+      + '</div>';
+    return;
+  }
+
   for (const p of PINNED) {
     $('#pinned').append(navItem(p.label, 'rows', () => obsidian.tab.open(p.url)));
   }
@@ -129,7 +151,8 @@ function renderTabs(state) {
 
   $('#nav-back').disabled = !state.canGoBack;
   $('#nav-forward').disabled = !state.canGoForward;
-  $('#stat-tabs').textContent = openedCount;
+  const statTabs = $('#stat-tabs');
+  if (statTabs) statTabs.textContent = openedCount; // absent in a private window
   $('#topbar').classList.toggle('private', !!state.incognito);
 
   // Don't fight the user while they're typing in the omnibox.
@@ -350,9 +373,13 @@ function wire() {
   $('#new-tab').onclick = () => obsidian.tab.open();
   $('#private').onclick = () => obsidian.tab.openPrivate();
   $('#open-settings').onclick = () => obsidian.tab.openSettings();
-  $('#settings').onclick = () => obsidian.tab.openSettings();
 
-  $('#today-close').onclick = e => e.target.closest('.today').remove();
+  // These live in the profile / Today blocks, which a private window strips out.
+  const settingsBtn = $('#settings');
+  if (settingsBtn) settingsBtn.onclick = () => obsidian.tab.openSettings();
+
+  const todayClose = $('#today-close');
+  if (todayClose) todayClose.onclick = e => e.target.closest('.today').remove();
 
   const box = $('#omnibox');
   box.onkeydown = e => {
@@ -370,12 +397,18 @@ function wire() {
 
   setInterval(async () => {
     const { blocked } = await obsidian.adblock.stats();
-    $('#stat-blocked').textContent = blocked.toLocaleString();
     $('#shield-badge').hidden = blocked === 0;
     $('#shield').title = `${blocked.toLocaleString()} trackers blocked`;
 
-    const mins = Math.floor((Date.now() - startedAt) / 60000);
-    $('#stat-time').textContent = mins < 60 ? `${mins}m` : `${(mins / 60) | 0}h ${mins % 60}m`;
+    // The Today panel is absent in a private window.
+    const statBlocked = $('#stat-blocked');
+    if (statBlocked) statBlocked.textContent = blocked.toLocaleString();
+
+    const statTime = $('#stat-time');
+    if (statTime) {
+      const mins = Math.floor((Date.now() - startedAt) / 60000);
+      statTime.textContent = mins < 60 ? `${mins}m` : `${(mins / 60) | 0}h ${mins % 60}m`;
+    }
   }, 1500);
 }
 

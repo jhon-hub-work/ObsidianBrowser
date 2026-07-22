@@ -18,8 +18,37 @@ process.on('unhandledRejection', reason => console.error('[main] unhandled rejec
 const hasLock = app.requestSingleInstanceLock();
 if (!hasLock) app.quit();
 
-let win, tabs, adblock, history, store;
-let quitting = false;
+// The app layer owns windows (ARCHITECTURE.md). Each window carries its own
+// TabManager; nothing below this layer knows how many windows exist.
+const wins = new Map(); // BrowserWindow.id -> { win, tabs, incognito, booted }
+let mainCtx = null;     // the persistent, normal-profile window
+let adblock, history, store;
+
+// --- context lookup --------------------------------------------------------
+
+// A sender is either a window's shell renderer or a tab's web contents; both
+// must resolve to the window that owns them.
+function ctxOf(sender) {
+  const owner = BrowserWindow.fromWebContents(sender);
+  if (owner && wins.has(owner.id)) return wins.get(owner.id);
+
+  for (const ctx of wins.values()) {
+    for (const tab of ctx.tabs.tabs.values()) {
+      if (tab.view.webContents.id === sender.id) return ctx;
+    }
+  }
+  return null;
+}
+
+// Fall back to the focused window so a stray event never lands nowhere.
+function ctxOrFocused(sender) {
+  return ctxOf(sender) || wins.get(BrowserWindow.getFocusedWindow()?.id) || mainCtx;
+}
+
+function privateCtx() {
+  for (const ctx of wins.values()) if (ctx.incognito) return ctx;
+  return null;
+}
 
 // --- window state ----------------------------------------------------------
 
@@ -34,7 +63,10 @@ function validBounds(saved) {
   return inside ? saved : null;
 }
 
+// Only the normal window is ever persisted — a private window leaves no trace
+// of its geometry or its tabs.
 function saveWindowState() {
+  const win = mainCtx?.win;
   if (!win || win.isDestroyed()) return;
   // getNormalBounds() is the un-maximized rect, so restore isn't stuck fullscreen.
   const b = win.getNormalBounds();
@@ -42,26 +74,30 @@ function saveWindowState() {
 }
 
 function saveSession() {
-  if (!tabs) return;
-  const { tabs: list, activeIndex } = tabs.serialize();
+  if (!mainCtx?.tabs) return;
+  const { tabs: list, activeIndex } = mainCtx.tabs.serialize();
   store.setTabs(list, activeIndex);
 }
 
 // --- window ----------------------------------------------------------------
 
-async function createWindow() {
-  const saved = store.getWindow();
+async function createWindow({ incognito = false } = {}) {
+  const saved = incognito ? null : store.getWindow();
   const b = validBounds(saved);
 
-  win = new BrowserWindow({
-    width: b?.width ?? 1440,
-    height: b?.height ?? 900,
-    x: b?.x,
-    y: b?.y,
+  // A private window cascades off the normal one rather than reusing its rect,
+  // so it is obviously a second, separate window.
+  const base = incognito ? mainCtx?.win?.getNormalBounds() : null;
+
+  const win = new BrowserWindow({
+    width: b?.width ?? base?.width ?? 1440,
+    height: b?.height ?? base?.height ?? 900,
+    x: b?.x ?? (base ? base.x + 42 : undefined),
+    y: b?.y ?? (base ? base.y + 42 : undefined),
     minWidth: 940,
     minHeight: 620,
     frame: false,
-    backgroundColor: '#0b0b0b',
+    backgroundColor: incognito ? '#0d0a16' : '#0b0b0b',
     show: false,
     icon: path.join(__dirname, '..', '..', 'assets', 'icon.png'),
     webPreferences: {
@@ -71,42 +107,84 @@ async function createWindow() {
     }
   });
 
-  if (saved?.maximized) win.maximize();
+  if (!incognito && saved?.maximized) win.maximize();
   win.once('ready-to-show', () => win.show());
 
-  await win.loadFile(path.join(__dirname, '..', 'renderer', 'shell.html'));
+  // The shell reads this to strip every trace of the signed-in identity —
+  // account, pinned links, workspaces — from a private window's chrome.
+  await win.loadFile(path.join(__dirname, '..', 'renderer', 'shell.html'), {
+    query: incognito ? { private: '1' } : {}
+  });
 
-  tabs = new TabManager(win, history, saveSession);
+  const tabs = new TabManager(win, incognito ? null : history, incognito ? () => {} : saveSession);
+  const ctx = { win, tabs, incognito, booted: false };
+  wins.set(win.id, ctx);
+  if (!incognito) mainCtx = ctx;
 
-  win.on('resize', () => { tabs.layout(); saveWindowState(); });
-  win.on('move', saveWindowState);
+  win.on('resize', () => { tabs.layout(); if (!incognito) saveWindowState(); });
+  if (!incognito) win.on('move', saveWindowState);
 
   // Windows caption button needs to reflect real maximize state.
   const sendState = () => {
     if (!win.isDestroyed()) win.webContents.send('win:state', { maximized: win.isMaximized() });
   };
-  win.on('maximize', () => { sendState(); saveWindowState(); });
-  win.on('unmaximize', () => { sendState(); saveWindowState(); });
+  win.on('maximize', () => { sendState(); if (!incognito) saveWindowState(); });
+  win.on('unmaximize', () => { sendState(); if (!incognito) saveWindowState(); });
   sendState();
 
-  // Last-chance save if the window closes directly (not via app quit).
-  win.on('close', () => { saveWindowState(); saveSession(); store.flush(); });
+  win.on('close', () => {
+    if (incognito) return;
+    // Last-chance save if the window closes directly (not via app quit).
+    saveWindowState();
+    saveSession();
+    store.flush();
+  });
+
+  win.on('closed', () => {
+    wins.delete(win.id);
+    if (ctx === mainCtx) mainCtx = null;
+    // Closing the last private window discards its throwaway profile outright.
+    if (incognito && !privateCtx()) {
+      session.fromPartition(PRIVATE_PARTITION)
+        .clearStorageData()
+        .catch(err => console.warn('[private] failed to clear session:', err.message));
+    }
+  });
 
   // The native tab view paints OVER the HTML shell, so tabs are attached only
   // after the splash animation reports done (4s failsafe).
-  let booted = false;
   const boot = () => {
-    if (booted) return;
-    booted = true;
+    if (ctx.booted || win.isDestroyed()) return;
+    ctx.booted = true;
+    if (incognito) {
+      tabs.create(undefined, { incognito: true }); // lands on obsidian://private
+      return;
+    }
     const restored = tabs.restore(store.getWorkspace());
     if (!restored) tabs.create(); // fresh profile: one new-tab page
   };
-  ipcMain.once('splash:done', boot);
+  ctx.boot = boot;
   setTimeout(boot, 4000);
+
+  return ctx;
+}
+
+// Private browsing is a *window*, not a tab — the separation has to be visible
+// at the OS level, or "private" is just a colour on a tab.
+function openPrivateWindow() {
+  const existing = privateCtx();
+  if (existing) {
+    if (existing.win.isMinimized()) existing.win.restore();
+    existing.win.focus();
+    existing.tabs.create(undefined, { incognito: true });
+    return;
+  }
+  createWindow({ incognito: true });
 }
 
 if (hasLock) {
   app.on('second-instance', () => {
+    const win = mainCtx?.win;
     if (!win) return;
     if (win.isMinimized()) win.restore();
     win.focus();
@@ -135,7 +213,6 @@ if (hasLock) {
 
 // Persist a final snapshot synchronously before the process exits.
 app.on('before-quit', () => {
-  quitting = true;
   saveWindowState();
   saveSession();
   store?.flush();
@@ -146,60 +223,84 @@ app.on('window-all-closed', () => app.quit());
 // --- app-scoped shortcuts --------------------------------------------------
 // before-input-event fires for the shell and every tab's web contents.
 const SHORTCUTS = {
-  't': () => tabs.create(),
-  'w': () => tabs.close(tabs.activeId),
-  'l': () => win.webContents.send('omnibox:focus'),
-  'k': () => { tabs.hideActive(); win.webContents.focus(); win.webContents.send('palette:open'); },
-  'h': () => tabs.create(SETTINGS),
-  ',': () => tabs.create(SETTINGS),
-  'r': () => tabs.reload(tabs.activeId)
+  't': ctx => ctx.tabs.create(undefined, { incognito: ctx.incognito }),
+  'w': ctx => ctx.tabs.close(ctx.tabs.activeId),
+  'l': ctx => ctx.win.webContents.send('omnibox:focus'),
+  'k': ctx => {
+    ctx.tabs.hideActive();
+    ctx.win.webContents.focus();
+    ctx.win.webContents.send('palette:open');
+  },
+  'h': ctx => ctx.tabs.create(SETTINGS),
+  ',': ctx => ctx.tabs.create(SETTINGS),
+  'r': ctx => ctx.tabs.reload(ctx.tabs.activeId)
 };
 
 app.on('web-contents-created', (_e, wc) => {
   wc.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || !input.control || !tabs) return;
+    if (input.type !== 'keyDown' || !input.control) return;
     const key = input.key.toLowerCase();
 
     if (input.shift && key === 'n') {
-      tabs.create(undefined, { incognito: true });
+      openPrivateWindow();
       event.preventDefault();
       return;
     }
+
+    const ctx = ctxOrFocused(wc);
+    if (!ctx) return;
     if (!input.shift && SHORTCUTS[key]) {
-      SHORTCUTS[key]();
+      SHORTCUTS[key](ctx);
       event.preventDefault();
     }
   });
 });
 
 // --- IPC: tabs -------------------------------------------------------------
+// Every handler resolves the sender's window first; nothing addresses a global.
 
 ipcMain.handle('shell:layout', () => layout);
 
-ipcMain.on('tab:new', (_e, url) => tabs.create(url || undefined));
-ipcMain.on('tab:private', () => tabs.create(undefined, { incognito: true }));
-ipcMain.on('tab:settings', () => tabs.create(SETTINGS));
-ipcMain.on('tab:close', (_e, id) => tabs.close(id));
-ipcMain.on('tab:activate', (_e, id) => tabs.activate(id));
-ipcMain.on('tab:navigate', (_e, input) => tabs.navigate(tabs.activeId, input));
-ipcMain.on('tab:back', () => tabs.back(tabs.activeId));
-ipcMain.on('tab:forward', () => tabs.forward(tabs.activeId));
-ipcMain.on('tab:reload', () => tabs.reload(tabs.activeId));
-ipcMain.on('tab:pin', (_e, id, pinned) => tabs.setPinned(id, pinned));
-ipcMain.on('tab:contextmenu', (_e, id) => tabs.showTabMenu(id));
-ipcMain.on('tab:scroll', (e, y) => tabs?.setScrollByWc(e.sender.id, y));
-ipcMain.on('palette:closed', () => tabs.showActive());
-ipcMain.on('tab:devtools', () => {
-  const wc = tabs.active()?.view.webContents;
+// Ready as soon as the splash finishes, per window.
+ipcMain.on('splash:done', e => ctxOf(e.sender)?.boot?.());
+
+const onTab = (channel, fn) => ipcMain.on(channel, (e, ...args) => {
+  const ctx = ctxOrFocused(e.sender);
+  if (ctx) fn(ctx, ...args);
+});
+
+// New tabs inherit the window's mode — a tab opened in a private window is private.
+onTab('tab:new', (ctx, url) => ctx.tabs.create(url || undefined, { incognito: ctx.incognito }));
+onTab('tab:private', () => openPrivateWindow());
+onTab('tab:settings', ctx => ctx.tabs.create(SETTINGS));
+onTab('tab:close', (ctx, id) => ctx.tabs.close(id));
+onTab('tab:activate', (ctx, id) => ctx.tabs.activate(id));
+onTab('tab:navigate', (ctx, input) => ctx.tabs.navigate(ctx.tabs.activeId, input));
+onTab('tab:back', ctx => ctx.tabs.back(ctx.tabs.activeId));
+onTab('tab:forward', ctx => ctx.tabs.forward(ctx.tabs.activeId));
+onTab('tab:reload', ctx => ctx.tabs.reload(ctx.tabs.activeId));
+onTab('tab:pin', (ctx, id, pinned) => ctx.tabs.setPinned(id, pinned));
+onTab('tab:contextmenu', (ctx, id) => ctx.tabs.showTabMenu(id));
+onTab('palette:closed', ctx => ctx.tabs.showActive());
+
+ipcMain.on('tab:scroll', (e, y) => ctxOf(e.sender)?.tabs.setScrollByWc(e.sender.id, y));
+
+onTab('tab:devtools', ctx => {
+  const wc = ctx.tabs.active()?.view.webContents;
   if (wc) wc.isDevToolsOpened() ? wc.closeDevTools() : wc.openDevTools({ mode: 'right' });
 });
 
 // --- IPC: window -----------------------------------------------------------
 
-ipcMain.on('win:minimize', () => win.minimize());
-ipcMain.on('win:maximize', () => (win.isMaximized() ? win.unmaximize() : win.maximize()));
-ipcMain.on('win:close', () => win.close());
-ipcMain.handle('win:isMaximized', () => win.isMaximized());
+const onWin = (channel, fn) => ipcMain.on(channel, e => {
+  const win = ctxOrFocused(e.sender)?.win;
+  if (win && !win.isDestroyed()) fn(win);
+});
+
+onWin('win:minimize', win => win.minimize());
+onWin('win:maximize', win => (win.isMaximized() ? win.unmaximize() : win.maximize()));
+onWin('win:close', win => win.close());
+ipcMain.handle('win:isMaximized', e => !!ctxOrFocused(e.sender)?.win.isMaximized());
 
 // --- IPC: settings ---------------------------------------------------------
 

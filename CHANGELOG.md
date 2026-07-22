@@ -3,6 +3,54 @@
 All notable changes to Obsidian Browser are recorded here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — Private windows — 2026-07-22
+
+The browser learns to open more than one window, and private browsing becomes a real boundary
+rather than a differently-coloured tab.
+
+### Added — Private windows
+- **Private browsing is now a separate window, not a tab.** `Ctrl+Shift+N` opens a dedicated private
+  window; if one is already open it is focused and given a new tab instead of spawning a second.
+- **Dedicated private landing page** (`obsidian://private`) replacing the personalized home page.
+  States plainly what the mode does (no history, isolated identity, discarded on close, trackers
+  still blocked), what it does **not** do (no anonymity from network/ISP/employer, sites you sign
+  into still know you, downloads persist), and why the mode exists.
+- **Private windows carry no identity in their chrome.** Account, pinned links, workspaces, assistant
+  nav, and the Today panel are removed from the DOM — not hidden with CSS — and replaced with a
+  standing "Private window" note.
+- Private windows are never persisted: no saved geometry, no saved tabs, never restored on relaunch.
+  Closing the last one clears the throwaway session partition explicitly.
+- Private tabs pass no `History` instance to their `TabManager` at all — a second layer of defense
+  beneath the existing `incognito` check in `history.js`.
+
+### Changed — Multi-window support
+- The main process now owns a **map of window contexts** (`BrowserWindow.id → { win, tabs, incognito }`)
+  instead of `win`/`tabs` singletons. Every IPC handler and keyboard shortcut resolves the sender's
+  window first, so nothing addresses a global. This realizes the "app/main layer owns windows"
+  decision in ARCHITECTURE.md and is the groundwork the Workspace Engine needs.
+- New tabs inherit their window's mode — a tab opened in a private window is private.
+- Only the normal window writes session or window state; private windows are excluded at the source.
+
+### Fixed
+- **Private tabs were visually indistinguishable from normal tabs.** They were styled with a 1px
+  dashed border in `#3b2f56`, which is invisible against the dark theme. Private tabs now use a
+  tinted fill, a solid accent border, and a marker dot that survives the pinned favicon-only collapse.
+  The isolation was always correct; the affordance was missing.
+- Internal pages now style their own scrollbars — Chromium's default light scrollbar read as a bright
+  seam against the dark UI.
+
+### Documentation
+- Added `ARCHITECTURE.md` as the canonical, permanent engineering guidance.
+- Clarified product identity: a **workspace-first** browser that accumulates engineering knowledge —
+  explicitly *not* an AI browser. Updated README and VISION accordingly.
+- Codified seven guiding principles and the long-term layered architecture (Browser → Workspace →
+  Context Engine → Knowledge Engine → Intent Engine → AI Provider).
+- Recorded knowledge principles (knowledge is separate from history; deleting history never erases
+  Core Memory; knowledge grows through confirmed user actions, not passive observation; Core Memory
+  stays optional/transparent/exportable/deletable) and performance principles.
+- Added the Intent Engine and a replaceable AI provider to the roadmap; moved Google OAuth to a
+  longer-term goal.
+
 ## [0.1.0] — Foundation — 2026-07-21
 
 The first foundation release: a stable, daily-usable browser that reopens exactly where you left
