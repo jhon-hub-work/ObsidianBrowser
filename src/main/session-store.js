@@ -17,11 +17,17 @@ function defaultMeta() {
   return [{ id: DEFAULT_ID, name: 'Default', createdAt: null }];
 }
 
+// mode: 'system' | 'light' | 'dark'  —  ambience: 'none' | <id from tokens.css>
+function defaultTheme() {
+  return { mode: 'system', ambience: 'none' };
+}
+
 function emptyData() {
   return {
     version: VERSION,
     window: null,
     activeWorkspace: DEFAULT_ID,
+    theme: defaultTheme(),
     workspaceMeta: defaultMeta(),
     workspaces: { [DEFAULT_ID]: { activeIndex: 0, tabs: [] } }
   };
@@ -61,7 +67,20 @@ class SessionStore {
         : defaultMeta();
     }
     if (!data.activeWorkspace) data.activeWorkspace = DEFAULT_ID;
+    if (!data.theme || typeof data.theme !== 'object') data.theme = defaultTheme();
     return data;
+  }
+
+  // --- theme (global; see ADR-0008 — private surfaces are never themed) ----
+
+  getTheme() {
+    return { ...defaultTheme(), ...this.data.theme };
+  }
+
+  setTheme(patch) {
+    this.data.theme = { ...this.getTheme(), ...patch };
+    this.scheduleSave();
+    return this.data.theme;
   }
 
   // --- window -------------------------------------------------------------

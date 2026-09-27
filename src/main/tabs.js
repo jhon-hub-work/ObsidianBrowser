@@ -32,14 +32,21 @@ class TabManager {
   // supplied rather than assumed, because a workspace owns its partition and a
   // TabManager belongs to exactly one workspace (ADR-0004). Private tabs always
   // use PRIVATE_PARTITION regardless — they belong to no workspace at all.
-  constructor(win, history, onChange = () => {}, { partition = NORMAL_PARTITION } = {}) {
+  // `theme` is supplied, never looked up: a TabManager paints what the app
+  // layer tells it to, the same way it browses the partition it is given.
+  // { colors, query } — colors for the native view background (the white
+  // flash on tab creation), query for internal obsidian:// pages.
+  constructor(win, history, onChange = () => {},
+              { partition = NORMAL_PARTITION, theme = null } = {}) {
     this.win = win;
     this.history = history;
     this.onChange = onChange;
     this.partition = partition;
+    this.theme = theme;
     this.tabs = new Map(); // id -> tab
     this.activeId = null;
     this.restoring = false; // suppress churn while rebuilding a saved session
+    this.mounted = true;    // false while its workspace is backgrounded (views detached)
   }
 
   // --- lifecycle -----------------------------------------------------------
@@ -68,6 +75,12 @@ class TabManager {
     const wc = view.webContents;
     wc.setUserAgent(UA);
 
+    // A WebContentsView paints white until its document's first paint. Main
+    // already knows the theme synchronously, so this costs nothing and is the
+    // difference between a clean new tab and a white flash on every one.
+    const themeBg = incognito ? null : this.theme?.colors?.bg;
+    if (themeBg) { try { view.setBackgroundColor(themeBg); } catch { /* older API */ } }
+
     const tab = {
       id, view,
       title: internal ? 'New Tab' : url,
@@ -85,7 +98,10 @@ class TabManager {
     this.win.contentView.addChildView(view);
 
     if (internal) {
-      wc.loadFile(path.join(__dirname, '..', 'renderer', internal)).catch(() => {});
+      // private.html carries data-private in its markup, so it needs no query.
+      const q = internal === 'private.html' ? {} : (this.theme?.query || {});
+      wc.loadFile(path.join(__dirname, '..', 'renderer', internal), { query: q })
+        .catch(() => {});
     } else {
       wc.loadURL(url).catch(() => {}); // failures surface via did-fail-load, never reject-crash
     }
@@ -115,7 +131,7 @@ class TabManager {
     if (this.activeId === id) {
       const remaining = [...this.tabs.keys()];
       if (remaining.length) this.activate(remaining[remaining.length - 1]);
-      else this.create(); // never leave the window tab-less
+      else if (this.mounted) this.create(); // never leave the active window tab-less
     }
     this.emit();
   }
@@ -136,6 +152,58 @@ class TabManager {
   // require temporarily hiding it.
   hideActive() { this.active()?.view.setVisible(false); }
   showActive() { this.active()?.view.setVisible(true); }
+
+  // --- workspace mounting --------------------------------------------------
+  // A window shows exactly one workspace at a time. Backgrounded workspaces keep
+  // their tabs (and web contents) alive but detach their views from the window,
+  // so only the active workspace paints or receives input. See ADR-0004.
+
+  mount() {
+    if (this.mounted) return;
+    this.mounted = true;
+    for (const tab of this.tabs.values()) this.win.contentView.addChildView(tab.view);
+    for (const [tid, tab] of this.tabs) tab.view.setVisible(tid === this.activeId);
+    this.layout();
+    this.emit();
+  }
+
+  unmount() {
+    if (!this.mounted) return;
+    this.mounted = false;
+    for (const tab of this.tabs.values()) {
+      try { this.win.contentView.removeChildView(tab.view); } catch { /* window gone */ }
+    }
+  }
+
+  // Full teardown for LRU eviction: drop from the window and kill the renderers.
+  // The caller must snapshot tabs first — nothing here is persisted.
+  destroy() {
+    for (const tab of this.tabs.values()) {
+      try { this.win.contentView.removeChildView(tab.view); } catch { /* window gone */ }
+      try { tab.view.webContents.close(); } catch { /* already gone */ }
+    }
+    this.tabs.clear();
+    this.activeId = null;
+    this.mounted = false;
+  }
+
+  // --- theme ---------------------------------------------------------------
+
+  // Repaint after a theme change. Internal obsidian:// pages are reloaded
+  // rather than messaged: they run the sandboxed content preload, which has
+  // no receive channel by design. Theme changes are rare and these are local
+  // files, so the reload is instant and costs nothing on the browsing path.
+  setTheme(colors, query) {
+    this.theme = { colors, query };
+
+    for (const tab of this.tabs.values()) {
+      if (tab.incognito) continue; // private surfaces are never re-themed
+      try { tab.view.setBackgroundColor(colors.bg); } catch { /* older API */ }
+      if (tab.logicalUrl && tab.logicalUrl.startsWith('obsidian://')) {
+        try { tab.view.webContents.reload(); } catch { /* torn down */ }
+      }
+    }
+  }
 
   // --- pinning -------------------------------------------------------------
 
@@ -256,6 +324,10 @@ class TabManager {
     // can fire mid-emit and make navigationHistory throw).
     if (!this.win || this.win.isDestroyed() || this.win.webContents.isDestroyed()) return;
 
+    // A backgrounded workspace must not drive the tab strip — that belongs to
+    // whichever workspace is currently mounted.
+    if (!this.mounted) return;
+
     const active = this.active();
     const nav = active && !active.view.webContents.isDestroyed()
       ? active.view.webContents.navigationHistory
@@ -313,7 +385,7 @@ class TabManager {
     wc.on('did-fail-load', (_e, code, desc, validatedURL, isMainFrame) => {
       if (!isMainFrame || code === -3) return; // -3 = user-aborted, ignore
       tab.title = 'Page failed to load';
-      wc.loadURL(errorPage(validatedURL, desc, code)).catch(() => {});
+      wc.loadURL(errorPage(validatedURL, desc, code, this.theme?.colors)).catch(() => {});
       sync();
     });
 
@@ -327,20 +399,27 @@ class TabManager {
 
 // Self-contained error page so a failed load shows something usable, not a
 // white void, and offers a one-click retry.
-function errorPage(url, desc, code) {
+function errorPage(url, desc, code, c) {
   const text = String(url || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const jsUrl = JSON.stringify(String(url || '')); // safe inside the onclick handler
+  // Colours come from tokens.css via the app layer (ADR-0007). The literals
+  // here are only the last-resort fallback if the token table is unavailable.
+  const t = {
+    bg: '#0b0b0b', text: '#f5f5f5', muted: '#7a7a7a',
+    border: '#222222', raised: '#1c1c1c', accent: '#4169e1', dim: '#b4b4b4',
+    ...(c || {})
+  };
   const html = `<!doctype html><meta charset="utf-8">
     <style>
-      html,body{height:100%;margin:0;background:#0b0b0b;color:#f5f5f5;
+      html,body{height:100%;margin:0;background:${t.bg};color:${t.text};
         font:15px/1.6 "Segoe UI",system-ui,sans-serif;display:grid;place-items:center}
       .box{max-width:440px;text-align:center;padding:24px}
       h1{font-size:20px;font-weight:600;margin:0 0 8px}
-      p{color:#7a7a7a;margin:0 0 20px;word-break:break-all}
-      button{height:38px;padding:0 20px;border:1px solid #222;border-radius:10px;
-        background:#1c1c1c;color:#f5f5f5;font:inherit;cursor:pointer}
-      button:hover{border-color:#4169e1}
-      code{color:#b4b4b4}
+      p{color:${t.muted};margin:0 0 20px;word-break:break-all}
+      button{height:38px;padding:0 20px;border:1px solid ${t.border};border-radius:10px;
+        background:${t.raised};color:${t.text};font:inherit;cursor:pointer}
+      button:hover{border-color:${t.accent}}
+      code{color:${t.dim}}
     </style>
     <div class="box">
       <h1>This page didn't load</h1>

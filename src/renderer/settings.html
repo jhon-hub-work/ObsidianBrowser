@@ -4,12 +4,9 @@
   <meta charset="utf-8" />
   <title>Settings</title>
   <link rel="icon" href="../../assets/favicon.svg" />
+  <script src="theme-boot.js"></script>
+  <link rel="stylesheet" href="tokens.css" />
   <style>
-    :root {
-      --bg: #08080b; --panel: #0d0d10; --surface: #131317; --raised: #1e1e23;
-      --border: #1f1f25; --muted: #74747c; --dim: #a8a8b0; --text: #f2f2f4;
-      --accent: #2563eb; --danger: #ef4444;
-    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -41,10 +38,23 @@
     nav button:hover { background: var(--surface); color: var(--text); }
     nav button.active { background: var(--raised); color: var(--text); }
 
+    /* Ambience — settings is a full-bleed internal surface, so it is one of
+       the few places an ambience can actually be seen (ADR-0009). Fixed and
+       behind the content; never animated. */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: var(--ambience);
+      pointer-events: none;
+      z-index: 0;
+    }
+    nav, main { position: relative; z-index: 1; }
+
     /* ---- panes ---- */
     main { overflow-y: auto; padding: 40px 44px 60px; }
     main::-webkit-scrollbar { width: 10px; }
-    main::-webkit-scrollbar-thumb { background: #24242a; border-radius: 5px; }
+    main::-webkit-scrollbar-thumb { background: var(--raised); border-radius: 5px; }
 
     .pane { display: none; max-width: 720px; }
     .pane.active { display: block; }
@@ -70,11 +80,11 @@
       white-space: nowrap;
       transition: background .12s, border-color .12s;
     }
-    button.btn:hover { background: #26262d; border-color: #33333b; }
+    button.btn:hover { background: var(--hover-strong); border-color: var(--muted); }
     button.btn.primary { background: var(--accent); border-color: var(--accent); }
     button.btn.primary:hover { background: #1d4ed8; }
-    button.btn.danger { color: #fca5a5; border-color: #3a1f22; background: #1e1416; }
-    button.btn.danger:hover { background: #2a181b; border-color: var(--danger); }
+    button.btn.danger { color: var(--danger); border-color: rgba(239,68,68,.32); background: rgba(239,68,68,.08); }
+    button.btn.danger:hover { background: rgba(239,68,68,.16); border-color: var(--danger); }
 
     select {
       height: 34px; padding: 0 10px;
@@ -94,14 +104,14 @@
       color: var(--text); font: 400 14px inherit; font-family: inherit;
       outline: none; user-select: text;
     }
-    .search:focus { border-color: #33333b; }
+    .search:focus { border-color: var(--hover-strong); }
     .search::placeholder { color: var(--muted); }
 
     .hist { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
     .hist-day { padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
     .hist-item {
       display: flex; align-items: center; gap: 14px;
-      padding: 10px 16px; border-bottom: 1px solid #16161a;
+      padding: 10px 16px; border-bottom: 1px solid var(--hover);
       cursor: pointer;
     }
     .hist-item:last-child { border-bottom: none; }
@@ -128,15 +138,41 @@
 <body>
   <nav>
     <span class="label">Settings</span>
-    <button data-pane="history" class="active">History</button>
+    <button data-pane="appearance" class="active">Appearance</button>
+    <button data-pane="history">History</button>
     <button data-pane="privacy">Privacy</button>
     <button data-pane="shield">Ad Blocker</button>
     <button data-pane="about">About</button>
   </nav>
 
   <main>
+    <!-- ================= appearance ================= -->
+    <section class="pane active" id="pane-appearance">
+      <h1>Appearance</h1>
+      <p class="lede">Theme applies to the whole browser. Private windows keep their own fixed
+        palette — that violet chrome is how you can tell a private window at a glance, so it is
+        deliberately not themeable.</p>
+
+      <div class="card">
+        <h2>Theme</h2>
+        <p>System follows your Windows light/dark setting and changes with it.</p>
+        <div class="checks" id="mode-group">
+          <label class="check"><input type="radio" name="mode" value="system" /> System</label>
+          <label class="check"><input type="radio" name="mode" value="light" /> Light</label>
+          <label class="check"><input type="radio" name="mode" value="dark" /> Dark</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Ambience</h2>
+        <p>A visual identity for Obsidian's own surfaces — the new tab page, this page, and the
+          startup screen. It never renders over a website, so it costs nothing while you browse.</p>
+        <div class="checks" id="amb-group"></div>
+      </div>
+    </section>
+
     <!-- ================= history ================= -->
-    <section class="pane active" id="pane-history">
+    <section class="pane" id="pane-history">
       <h1>History</h1>
       <p class="lede">Everything you've visited in normal tabs. Private tabs are never recorded.</p>
 
@@ -320,6 +356,39 @@
       $('#blocked-count').textContent = blocked.toLocaleString();
     }
 
+    // ---- appearance ----
+    // Friendly names for ids discovered in tokens.css. An unknown id still
+    // renders (title-cased) rather than vanishing, so adding an ambience to
+    // the stylesheet is genuinely the only step required.
+    const AMB_NAMES = { milkyway: 'Milky Way' };
+    const ambLabel = id =>
+      AMB_NAMES[id] || id.charAt(0).toUpperCase() + id.slice(1);
+
+    async function renderAppearance() {
+      const t = await obsidian.theme.get();
+
+      for (const r of $$('#mode-group input')) {
+        r.checked = r.value === (t.mode || 'system');
+        r.onchange = () => { if (r.checked) obsidian.theme.set({ mode: r.value }); };
+      }
+
+      const group = $('#amb-group');
+      group.innerHTML = '';
+      for (const id of ['none', ...(t.ambiences || [])]) {
+        const label = document.createElement('label');
+        label.className = 'check';
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'amb';
+        input.value = id;
+        input.checked = (t.ambience || 'none') === id;
+        input.onchange = () => { if (input.checked) obsidian.theme.set({ ambience: id }); };
+        label.append(input, document.createTextNode(' ' + (id === 'none' ? 'None' : ambLabel(id))));
+        group.append(label);
+      }
+    }
+
+    renderAppearance();
     renderHistory();
     refreshBlocked();
     setInterval(refreshBlocked, 2000);

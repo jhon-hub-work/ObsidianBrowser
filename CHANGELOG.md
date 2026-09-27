@@ -5,7 +5,23 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Milestone 2 (Workspace Engine) in progress — steps 1–2 of 5.
+Milestone 2 (Workspace Engine) in progress. Appearance (theme system) added alongside it.
+
+### Added — Appearance
+- **Light / dark / system theme.** System follows the OS via `nativeTheme` and changes live with it.
+- **Ambience** — a visual identity layered on the mode axis. Ships with one, *Milky Way*, CSS-generated.
+- **`src/renderer/tokens.css`** — the single source of truth for every colour, linked by all four renderer surfaces and parsed at boot by `src/main/tokens.js` so the main process paints window backgrounds and the error page from the same values ([ADR-0007](docs/adr/0007-tokens-in-one-css-file.md)).
+- **Appearance pane** in Settings.
+- `theme-boot.js` — render-blocking, applies the theme before first style resolution so no window or tab flashes the wrong theme.
+
+### Fixed — Appearance
+- **The chrome and the new-tab page were painting different colours.** `shell.css` used `--bg: #0b0b0b` / `--accent: #4169e1` while `home.html` and `settings.html` used `#08080b` / `#2563eb`. Three duplicated `:root` blocks had silently drifted apart; consolidating them is what surfaced it. `shell.css`'s values (the written brand spec) are canonical.
+- Hardcoded dark greys in hover, recessed and focus states that would have rendered as black flashes against a light surface are now tokens (`--hover`, `--hover-strong`, `--sunken`).
+
+### Notes — Appearance
+- **The private window is not themeable** and never will be — its violet palette *is* the implementation of [ADR-0002](docs/adr/0002-private-browsing-as-a-window.md)'s identifiability guarantee, not decoration ([ADR-0008](docs/adr/0008-private-window-is-not-themeable.md)).
+- **Ambience renders only where no native view covers it** — new tab, settings, splash, switch overlay — and never animates. A web page's `WebContentsView` is opaque and paints over the chrome, so chrome ambience would survive only as a gutter crop while still costing repaint ([ADR-0009](docs/adr/0009-ambience-only-where-nothing-covers-it.md)).
+- Themes were removed from the deferred list in `README.md` and `ROADMAP.md`.
 
 ### Added
 - **`WorkspaceManager`** — single authority for the active workspace and its partition. Deliberately does not `require('electron')`, so it cannot create a window even by accident (see [ADR-0003](docs/adr/0003-window-ownership.md)).

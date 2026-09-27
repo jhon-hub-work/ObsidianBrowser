@@ -4,11 +4,9 @@
   <meta charset="utf-8" />
   <title>Obsidian</title>
   <link rel="icon" href="../../assets/favicon.svg" />
+  <script src="theme-boot.js"></script>
+  <link rel="stylesheet" href="tokens.css" />
   <style>
-    :root {
-      --bg: #08080b; --surface: #131317; --border: #1f1f25;
-      --muted: #74747c; --dim: #a8a8b0; --text: #f2f2f4; --accent: #2563eb;
-    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -26,8 +24,21 @@
       user-select: none;
     }
 
+    /* Ambience sits furthest back — the new-tab page is one of the few
+       surfaces no native view covers, so it is where an ambience can
+       actually be seen full-bleed (ADR-0009). Static: no repaint cost. */
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--ambience);
+      pointer-events: none;
+      z-index: 0;
+    }
+
     /* Layered mountain silhouettes, bottom-anchored. Pure CSS so the page
-       stays self-contained and instant. */
+       stays self-contained and instant. Tokenised so they follow the
+       ambience instead of pinning the page to graphite. */
     .ridge {
       position: absolute;
       left: 50%; bottom: 0;
@@ -36,8 +47,8 @@
       pointer-events: none;
       z-index: 0;
     }
-    .ridge.back  { height: 46%; background: #0b0b0f; clip-path: polygon(0 100%, 22% 34%, 44% 100%, 62% 22%, 100% 100%); }
-    .ridge.front { height: 34%; background: #0d0d12; clip-path: polygon(0 100%, 30% 26%, 55% 100%, 78% 40%, 100% 100%); }
+    .ridge.back  { height: 46%; background: var(--panel); clip-path: polygon(0 100%, 22% 34%, 44% 100%, 62% 22%, 100% 100%); }
+    .ridge.front { height: 34%; background: var(--surface); clip-path: polygon(0 100%, 30% 26%, 55% 100%, 78% 40%, 100% 100%); }
 
     .head, .ask, .grid { position: relative; z-index: 1; }
 
@@ -49,13 +60,13 @@
       display: flex; align-items: center; gap: 12px;
       width: min(600px, 86vw); height: 56px;
       padding: 0 8px 0 22px;
-      background: rgba(19,19,23,.72);
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
       backdrop-filter: blur(12px);
       transition: border-color .15s;
     }
-    .ask:focus-within { border-color: #32323a; }
+    .ask:focus-within { border-color: var(--hover-strong); }
     .ask input {
       flex: 1; min-width: 0;
       background: none; border: none; outline: none;
@@ -89,7 +100,7 @@
       text-decoration: none;
       transition: border-color .18s, transform .18s, color .18s;
     }
-    .card:hover { border-color: #33333b; color: var(--text); transform: translateY(-2px); }
+    .card:hover { border-color: var(--hover-strong); color: var(--text); transform: translateY(-2px); }
 
     /* the colored bloom above each label */
     .card::before {

@@ -1,0 +1,154 @@
+/* ===========================================================================
+   tokens.css — THE single source of truth for every colour in Obsidian.
+   Linked by shell.html, home.html, settings.html and private.html, and parsed
+   at boot by src/main/tokens.js so the main process (window background, the
+   did-fail-load error page) uses these exact values too. See ADR-0007.
+
+   Nothing else may declare a colour token. Before this file existed the three
+   renderer surfaces each carried their own :root block and had silently
+   drifted apart — the chrome painted #0b0b0b/#4169e1 while the new-tab page
+   painted #08080b/#2563eb. One file is the fix; a second source is the bug.
+
+   Cascade, lowest to highest:
+     :root                                  dark graphite (default)
+     :root[data-theme="light"]              light mode
+     :root[data-ambience="…"]               ambience hue shift
+     :root[data-ambience="…"][data-theme=…] ambience, light
+     html[data-private]                     PRIVATE — fixed, see ADR-0008
+
+   Private is not last by specificity accident: theme-boot.js refuses to set
+   data-theme or data-ambience on a private surface at all, so nothing can
+   compete with it. Private-mode identifiability is a guarantee (ADR-0002),
+   not a preference.
+   =========================================================================== */
+
+/* --- dark graphite — the default ---------------------------------------- */
+/* Canonical values. These match the written brand spec (#0B0B0B graphite,
+   royal blue #4169E1); the old #08080b/#2563eb variants were stale. */
+:root {
+  --bg:          #0b0b0b;
+  --panel:       #0f0f0f;
+  --surface:     #141414;
+  --raised:      #1c1c1c;
+  --border:      #222222;
+  --muted:       #7a7a7a;
+  --dim:         #b4b4b4;
+  --text:        #f5f5f5;
+  --accent:      #4169e1;
+  --accent-soft: rgba(65, 105, 225, .16);
+  --danger:      #ef4444;
+
+  /* Interaction states. These MUST be tokens: hardcoded dark greys here
+     render as black flashes against a light surface. */
+  --hover:        #16161a;  /* nav / tab hover */
+  --hover-strong: #2c2c33;  /* small control hover (close, delete) */
+  --sunken:       #101014;  /* recessed: omnibox, inactive tab well */
+
+  /* Ambience paints only on surfaces no native view covers — the new-tab
+     page, settings, the boot splash and the switch overlay. Never the
+     chrome: the web page renders in an opaque native layer above it, so
+     chrome ambience survives only as a gutter crop. See ADR-0009. */
+  --ambience: none;
+}
+
+/* --- light --------------------------------------------------------------- */
+:root[data-theme="light"] {
+  --bg:          #fafafa;
+  --panel:       #f2f2f2;
+  --surface:     #ffffff;
+  --raised:      #e8e8e8;
+  --border:      #d9d9d9;
+  --muted:       #6e6e6e;
+  --dim:         #4a4a4a;
+  --text:        #0f0f0f;
+  --accent:      #4169e1;
+  --accent-soft: rgba(65, 105, 225, .12);
+  --danger:      #dc2626;
+
+  --hover:        #eeeeee;
+  --hover-strong: #dcdcdc;
+  --sunken:       #f4f4f4;
+}
+
+/* --- ambience: Milky Way ------------------------------------------------- */
+/* Same luminance structure as graphite, hue shifted to blue-black. Keeping
+   the structure identical is what stops an ambience reading as a novelty
+   skin — the layout looks the same, only the mood moves. */
+:root[data-ambience="milkyway"] {
+  --bg:          #07080f;
+  --panel:       #0b0d16;
+  --surface:     #11141f;
+  --raised:      #191d2b;
+  --border:      #232838;
+  --muted:       #7c8399;
+  --dim:         #b6bccb;
+  --text:        #f4f6fb;
+  --accent:      #8ab4ff;
+  --accent-soft: rgba(138, 180, 255, .16);
+
+  --hover:        #141826;
+  --hover-strong: #262c3e;
+  --sunken:       #0a0c14;
+
+  /* CSS-generated starfield + galactic core. Static by design: the shell
+     renderer is not throttled while it is covered, so an animated ambience
+     would burn frames delivering pixels nobody can see (ADR-0009). */
+  --ambience:
+    radial-gradient(1.4px 1.4px at 18% 24%, #fff 50%, transparent 52%),
+    radial-gradient(1.1px 1.1px at 62% 14%, #dfe8ff 50%, transparent 52%),
+    radial-gradient(1.6px 1.6px at 82% 46%, #fff 50%, transparent 52%),
+    radial-gradient(1px 1px at 36% 66%, #cfe0ff 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 74% 78%, #fff 50%, transparent 52%),
+    radial-gradient(1px 1px at 8% 82%, #bcd2ff 50%, transparent 52%),
+    radial-gradient(1.3px 1.3px at 47% 8%, #fff 50%, transparent 52%),
+    radial-gradient(1px 1px at 91% 18%, #d8e4ff 50%, transparent 52%),
+    radial-gradient(ellipse 80% 50% at 68% 34%, rgba(150, 120, 220, .20), transparent 70%),
+    radial-gradient(ellipse 70% 45% at 26% 62%, rgba(90, 130, 220, .16), transparent 72%);
+}
+
+:root[data-ambience="milkyway"][data-theme="light"] {
+  --bg:          #f7f8fc;
+  --panel:       #eef1f8;
+  --surface:     #ffffff;
+  --raised:      #e4e9f4;
+  --border:      #d5dcec;
+  --muted:       #6b7488;
+  --dim:         #4a5266;
+  --text:        #10131c;
+  --accent:      #3b5bdb;
+  --accent-soft: rgba(59, 91, 219, .12);
+
+  --hover:        #e8ecf6;
+  --hover-strong: #d6dcec;
+  --sunken:       #f1f3fa;
+
+  /* Daylight sky: no stars, just the faint colour cast of the same nebula. */
+  --ambience:
+    radial-gradient(ellipse 80% 50% at 68% 34%, rgba(120, 90, 200, .10), transparent 70%),
+    radial-gradient(ellipse 70% 45% at 26% 62%, rgba(70, 110, 200, .09), transparent 72%);
+}
+
+/* --- private — FIXED, NOT THEMEABLE (ADR-0008) --------------------------- */
+/* ADR-0002 guarantees private mode is identifiable instantly, and the violet
+   chrome IS that guarantee's implementation. If a ruby ambience or light mode
+   could recolour it, the guarantee degrades to "a colour on a window" — the
+   exact failure ADR-0002 was written to kill — and nothing would catch it. */
+html[data-private] {
+  --bg:          #0d0a16;
+  --panel:       #120e1f;
+  --surface:     #17112e;
+  --raised:      #1f1838;
+  --border:      #2e2450;
+  --muted:       #7b719c;
+  --dim:         #b0a4cf;
+  --text:        #e9e4f7;
+  --accent:      #a78bfa;
+  --accent-soft: rgba(167, 139, 250, .16);
+  --danger:      #ef4444;
+
+  --hover:        #1d1639;
+  --hover-strong: #2a2145;
+  --sunken:       #0f0b1c;
+
+  --ambience:    none;
+}

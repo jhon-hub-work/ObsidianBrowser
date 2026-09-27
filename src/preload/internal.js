@@ -11,6 +11,11 @@ contextBridge.exposeInMainWorld('obsidian', {
     clear: (types, sinceMs = null) => ipcRenderer.invoke('data:clear', { types, sinceMs })
   },
   adblock: { stats: () => ipcRenderer.invoke('adblock:stats') },
+
+  theme: {
+    get: () => ipcRenderer.invoke('theme:get'),
+    set: patch => ipcRenderer.invoke('theme:set', patch)
+  },
   tab: {
     open: url => ipcRenderer.send('tab:new', url),
     openPrivate: () => ipcRenderer.send('tab:private')

@@ -10,13 +10,11 @@ const IS_PRIVATE = new URLSearchParams(location.search).get('private') === '1';
 
 const PINNED = [
   { label: 'Wave3',     url: 'https://wave3.ph' },
-  { label: 'Portfolio', url: 'https://jhonmbuerano.netlify.app' },
+  { label: 'Portfolio', url: 'https://jhonsportfolio.netlify.app' },
   { label: 'Clients',   url: 'https://www.onlinejobs.ph' },
   { label: 'Personal',  url: 'https://mail.google.com' },
   { label: 'Research',  url: 'https://claude.ai' }
 ];
-
-const WORKSPACES = ['Development', 'Business', 'Learning'];
 
 const ASSIST = [
   { label: 'History',     icon: 'history' },
@@ -28,6 +26,9 @@ const ASSIST = [
 
 const ICONS = {
   rows: '<path d="M4 5h16M4 10h16M4 15h16M4 19h16"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/>',
   download: '<path d="M12 4v12"/><path d="m7 12 5 5 5-5"/><path d="M5 20h14"/>',
   note: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h5"/>',
@@ -70,18 +71,103 @@ function renderNav() {
     $('#pinned').append(navItem(p.label, 'rows', () => obsidian.tab.open(p.url)));
   }
 
-  const wsButtons = WORKSPACES.map((w, i) =>
-    navItem(w, 'rows', () => {
-      wsButtons.forEach(b => b.classList.remove('active'));
-      wsButtons[i].classList.add('active');
-    }, i === 0)
-  );
-  wsButtons.forEach(b => $('#workspaces').append(b));
+  renderWorkspaces();
 
   for (const a of ASSIST) {
     const action = a.label === 'History' ? () => obsidian.tab.openSettings() : () => {};
     $('#aside-nav').append(navItem(a.label, a.icon, action));
   }
+}
+
+// --- workspaces ------------------------------------------------------------
+
+const DEFAULT_WS = 'default';
+let wsList = []; // kept fresh so the command palette can offer switch targets
+
+async function renderWorkspaces() {
+  if (IS_PRIVATE) return;
+  wsList = await obsidian.workspace.list();
+  const host = $('#workspaces');
+  host.innerHTML = '';
+
+  for (const w of wsList) {
+    const row = document.createElement('div');
+    row.className = 'ws-item'
+      + (w.active ? ' active' : '')
+      + (w.state === 'failed' ? ' failed' : '');
+    row.title = w.name;
+    row.onclick = () => { if (!w.active) obsidian.workspace.switch(w.id); };
+
+    const icon = document.createElement('span');
+    icon.className = 'ws-ico';
+    icon.innerHTML = svg('grid');
+    row.append(icon);
+
+    const label = document.createElement('span');
+    label.className = 'ws-name';
+    label.textContent = w.name;
+    label.ondblclick = e => { e.stopPropagation(); beginRename(label, w); };
+    row.append(label);
+
+    // Dedicated rename control — stops the click from switching workspaces,
+    // which would re-render the row and destroy the inline input (WS-002).
+    const edit = document.createElement('button');
+    edit.className = 'ws-btn';
+    edit.innerHTML = svg('edit');
+    edit.title = 'Rename workspace';
+    edit.onclick = e => { e.stopPropagation(); beginRename(label, w); };
+    row.append(edit);
+
+    // The default workspace owns the original profile and can't be deleted.
+    if (w.id !== DEFAULT_WS && wsList.length > 1) {
+      const del = document.createElement('button');
+      del.className = 'ws-btn ws-del';
+      del.textContent = '×';
+      del.title = 'Delete workspace';
+      del.onclick = e => { e.stopPropagation(); obsidian.workspace.remove(w.id); };
+      row.append(del);
+    }
+
+    host.append(row);
+  }
+
+  const add = document.createElement('button');
+  add.className = 'ws-add';
+  add.innerHTML = svg('plus') + '<span>New workspace</span>';
+  add.onclick = () => obsidian.workspace.create('New workspace');
+  host.append(add);
+}
+
+function beginRename(label, w) {
+  const input = document.createElement('input');
+  input.className = 'ws-rename';
+  input.value = w.name;
+  label.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let done = false;
+  const commit = () => {
+    if (done) return;
+    done = true;
+    const name = input.value.trim();
+    if (name && name !== w.name) obsidian.workspace.rename(w.id, name);
+    else renderWorkspaces(); // revert to the current list
+  };
+  input.onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); done = true; renderWorkspaces(); }
+  };
+  input.onblur = commit;
+}
+
+// Covers the instant the outgoing workspace's views detach, so a switch never
+// flashes the empty window behind them (CC-0002).
+function showWsOverlay(on) {
+  const el = $('#ws-overlay');
+  if (!el) return;
+  if (on) el.classList.add('show');
+  else setTimeout(() => el.classList.remove('show'), 60); // let the new view paint first
 }
 
 // Stable per-host color so tabs without a favicon still read as distinct chips,
@@ -249,8 +335,7 @@ const palette = (() => {
     { g: 'Browser', t: 'Settings',         k: 'Ctrl ,', i: 'gear', run: () => obsidian.tab.openSettings() },
     { g: 'Browser', t: 'Clear Cache',      i: 'broom', run: async () => { await obsidian.data.clear(['cachestorage']); toast('Cache cleared'); } },
 
-    { g: 'Workspace', t: 'New Workspace',    i: 'grid', soon: true },
-    { g: 'Workspace', t: 'Switch Workspace', i: 'grid', soon: true },
+    { g: 'Workspace', t: 'New Workspace', i: 'grid', run: () => obsidian.workspace.create('New workspace') },
     { g: 'View', t: 'Split View', i: 'split', soon: true },
     { g: 'View', t: 'Screenshot', i: 'cam',   soon: true },
 
@@ -276,9 +361,17 @@ const palette = (() => {
       dynamic.push(looksLikeQuestion(q) ? ask : search, looksLikeQuestion(q) ? search : ask);
     }
 
+    // Live "Switch to <workspace>" entries, generated from the current list.
+    const allActions = ACTIONS.concat(
+      wsList.filter(w => !w.active).map(w => ({
+        g: 'Workspace', t: `Switch to ${w.name}`, i: 'grid',
+        run: () => obsidian.workspace.switch(w.id)
+      }))
+    );
+
     const matches = query
-      ? ACTIONS.filter(a => (a.t + ' ' + a.g).toLowerCase().includes(query))
-      : ACTIONS;
+      ? allActions.filter(a => (a.t + ' ' + a.g).toLowerCase().includes(query))
+      : allActions;
 
     if (dynamic.length) {
       addGroup('');
@@ -392,6 +485,12 @@ function wire() {
   obsidian.onPaletteOpen(() => palette.open());
 
   obsidian.tab.onState(renderTabs);
+
+  if (!IS_PRIVATE) {
+    obsidian.workspace.onChanged(() => renderWorkspaces());
+    obsidian.workspace.onSwitching(() => showWsOverlay(true));
+    obsidian.workspace.onSwitched(() => showWsOverlay(false));
+  }
 
   obsidian.onToast(msg => toast(msg));
 

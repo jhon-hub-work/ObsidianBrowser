@@ -62,7 +62,7 @@ Built-in, no extensions.
 
 ## Deferred (intentionally not on the roadmap yet)
 
-Chrome Sync, extension ecosystem, cloud accounts, themes, mobile.
+Chrome Sync, extension ecosystem, cloud accounts, mobile.
 These are postponed until the browser itself is exceptional.
 
 ## Definition of done

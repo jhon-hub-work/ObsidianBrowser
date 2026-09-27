@@ -235,7 +235,7 @@ code changes.
 | **Vanilla JS** for browser chrome | React / Svelte shell | The chrome is the one surface that can never feel slow. Zero build, zero hydration, instant paint. |
 | **Milestone gating** | Building the vision in parallel | Every milestone leaves a browser stable enough to use daily. Nothing half-built ships. |
 
-**Deliberately deferred:** Chrome Sync, an extension ecosystem, cloud accounts, themes, mobile.
+**Deliberately deferred:** Chrome Sync, an extension ecosystem, cloud accounts, mobile.
 These are postponed until the browser itself is exceptional — feature breadth before quality is how
 browser projects die.
 
@@ -356,5 +356,5 @@ Personal project — all rights reserved for now. See [`LICENSE`](LICENSE) once 
 
 <p align="center">
   <sub>Designed, built, and documented by <strong>Jhon Buerano</strong>.</sub><br/>
-  <sub><a href="https://jhonmbuerano.netlify.app">Portfolio</a> · <a href="https://www.linkedin.com/in/jhon-mycho-buerano">LinkedIn</a></sub>
+  <sub><a href="https://jhonsportfolio.netlify.app">Portfolio</a> · <a href="https://www.linkedin.com/in/jhon-mycho-buerano">LinkedIn</a></sub>
 </p>

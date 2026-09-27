@@ -92,6 +92,19 @@ user's machine unless the user explicitly opts in. Privacy comes before convenie
   approaches (not embedded-browser workarounds).
 - Cloud AI providers remain optional; the browser and its local intelligence must stand alone.
 
+## Appearance
+
+Theme has two independent axes: **mode** (light / dark / system) and **ambience** (a visual identity
+layered on top). Every colour in the product comes from `src/renderer/tokens.css`, which the main
+process parses so window and error-page painting agree with the renderer (ADR-0007).
+
+**Ambience is confined to surfaces the native view does not cover.** The browser chrome stays quiet;
+the new-tab page carries identity. Ambience is static — an animated one burns frames delivering
+pixels an opaque web page is already covering (ADR-0009).
+
+**The private window's palette is fixed and is not user-configurable.** It is the implementation of
+ADR-0002's identifiability guarantee, not decoration (ADR-0008).
+
 ## Decision records
 
 This document describes the design **as it currently stands** and is edited as the design evolves.
@@ -107,6 +120,9 @@ describes the decision that produced it.
 | [0002](docs/adr/0002-private-browsing-as-a-window.md) | Private browsing is a window, not a tab |
 | [0003](docs/adr/0003-window-ownership.md) | The application layer owns windows |
 | [0004](docs/adr/0004-workspace-isolation.md) | Workspaces isolate via Chromium session partitions |
+| [0007](docs/adr/0007-tokens-in-one-css-file.md) | Design tokens live in one CSS file, which main parses |
+| [0008](docs/adr/0008-private-window-is-not-themeable.md) | The private window is not themeable |
+| [0009](docs/adr/0009-ambience-only-where-nothing-covers-it.md) | Ambience renders only where nothing covers it |
 
 ---
 

@@ -1,15 +1,19 @@
-const { app, BrowserWindow, ipcMain, session, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell, screen, nativeTheme } = require('electron');
 const path = require('path');
 const { TabManager, SETTINGS, PRIVATE_PARTITION } = require('./tabs');
 const { WorkspaceManager } = require('./workspaces');
 const { enableAdblock } = require('./adblock');
-const { History } = require('./history');
+const { HistoryManager } = require('./history');
 const { SessionStore } = require('./session-store');
+const tokens = require('./tokens');
 const { UA, applyToSession } = require('./ua');
 const layout = require('./layout');
 
 // Must be set before any web contents exist.
 app.userAgentFallback = UA;
+
+// Baseline metrics for later milestones — cheap, log-only (CT-0003).
+const startupT0 = Date.now();
 
 // A single misbehaving async path must never hard-kill the browser.
 process.on('uncaughtException', err => console.error('[main] uncaught exception:', err));
@@ -40,6 +44,56 @@ function prepareSession(partition) {
     preparedPartitions.add(partition);
   }
   return ses;
+}
+
+// --- theme -----------------------------------------------------------------
+// Main owns theme resolution end to end: it resolves 'system' via nativeTheme,
+// paints window and view backgrounds from tokens.css, and hands renderers an
+// already-resolved value on the query string so nothing has to decide (and
+// flash) after first paint. See ADR-0007.
+
+function resolvedMode() {
+  const { mode } = store.getTheme();
+  if (mode === 'light' || mode === 'dark') return mode;
+  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+}
+
+// Query params consumed by renderer/theme-boot.js before styles resolve.
+function themeQuery(isPrivate) {
+  if (isPrivate) return { private: '1' };
+  const { ambience } = store.getTheme();
+  return { theme: resolvedMode(), amb: ambience || 'none' };
+}
+
+function themeColors(isPrivate = false) {
+  const { ambience } = store.getTheme();
+  return tokens.resolve({ mode: resolvedMode(), ambience, private: isPrivate });
+}
+
+// Repaint everything currently alive after a theme change. Internal
+// obsidian:// pages are reloaded rather than messaged: they run the sandboxed
+// content preload, which has no receive channel, and adding one would put a
+// theme listener on every web page on the internet for no benefit.
+function applyThemeEverywhere() {
+  nativeTheme.themeSource = store.getTheme().mode || 'system';
+
+  for (const ctx of wins.values()) {
+    if (ctx.win.isDestroyed()) continue;
+    const colors = themeColors(ctx.incognito);
+
+    ctx.win.setBackgroundColor(colors.bg);
+    if (!ctx.win.webContents.isDestroyed()) {
+      ctx.win.webContents.send('theme:changed', {
+        ...store.getTheme(), resolved: resolvedMode(), private: ctx.incognito
+      });
+    }
+
+    const managers = ctx.managers ? [...ctx.managers.values()] : [ctx.tabs];
+    for (const mgr of managers) {
+      if (!mgr) continue;
+      mgr.setTheme(colors, themeQuery(ctx.incognito));
+    }
+  }
 }
 
 // --- context lookup --------------------------------------------------------
@@ -91,10 +145,100 @@ function saveWindowState() {
   store.setWindow({ x: b.x, y: b.y, width: b.width, height: b.height, maximized: win.isMaximized() });
 }
 
+// Snapshot one workspace's tabs into the store (no disk write yet).
+function saveWorkspaceTabs(id, mgr) {
+  if (!id || !mgr) return;
+  const { tabs, activeIndex } = mgr.serialize();
+  store.setTabs(tabs, activeIndex, id);
+}
+
+// Assemble ONE complete snapshot — every hot workspace's tabs plus the active
+// id — so a single atomic flush can never leave the store half-updated (CC-0003).
 function saveSession() {
-  if (!mainCtx?.tabs) return;
-  const { tabs: list, activeIndex } = mainCtx.tabs.serialize();
-  store.setTabs(list, activeIndex);
+  if (!mainCtx?.managers) return;
+  for (const [id, mgr] of mainCtx.managers) saveWorkspaceTabs(id, mgr);
+  store.setActiveWorkspaceId(mainCtx.activeWsId);
+}
+
+// --- workspace switching ---------------------------------------------------
+// WorkspaceManager owns *which* workspace is active; the app layer owns the
+// TabManager instances and performs the mount/unmount here. See ADR-0004.
+
+const HOT_WORKSPACES = 4; // keep the N most-recently-used hydrated; evict the rest
+
+function touchLru(ctx, id) {
+  ctx.lru = [id, ...ctx.lru.filter(x => x !== id)];
+}
+
+// Bound memory: destroy the least-recently-used hot workspaces beyond the cap,
+// snapshotting each first so it rehydrates identically on return.
+function evictExcess(ctx) {
+  while (ctx.lru.length > HOT_WORKSPACES) {
+    const victim = ctx.lru.pop();
+    if (victim === ctx.activeWsId) { ctx.lru.unshift(victim); break; }
+    const mgr = ctx.managers.get(victim);
+    if (mgr) { saveWorkspaceTabs(victim, mgr); mgr.destroy(); ctx.managers.delete(victim); }
+  }
+}
+
+function broadcastWorkspaces(ctx = mainCtx) {
+  if (ctx && !ctx.win.isDestroyed()) ctx.win.webContents.send('ws:changed', workspaces.list());
+}
+
+// Swap the live workspace. Only ever driven by WorkspaceManager's 'activated'
+// event, so by the time we run, ensureSession() has already attached adblock +
+// UA to the target partition — no request can race ahead of protection (CC-0001).
+function switchWorkspace(ctx, id, prevId) {
+  if (!ctx?.managers || ctx.activeWsId === id) return;
+  const t0 = Date.now();
+
+  // Overlay covers the moment the native views are detached (CC-0002).
+  ctx.win.webContents.send('workspace:switching', { id });
+
+  const from = prevId ?? ctx.activeWsId;
+  const prevMgr = ctx.managers.get(from);
+  if (prevMgr) { saveWorkspaceTabs(from, prevMgr); prevMgr.unmount(); }
+
+  let mgr = ctx.managers.get(id);
+  let hydrated = false;
+  if (!mgr) {
+    try {
+      mgr = new TabManager(ctx.win, history.for(id), () => saveWorkspaceTabs(id, mgr),
+        { partition: workspaces.partition(id),
+          theme: { colors: themeColors(false), query: themeQuery(false) } });
+      const restored = mgr.restore(store.getWorkspace(id));
+      if (!restored) mgr.create();
+      ctx.managers.set(id, mgr);
+      hydrated = true;
+    } catch (err) {
+      // Never switch into a broken workspace — roll back to the previous one (CT-0002).
+      console.error(`[workspace] hydration failed for ${id}:`, err.message);
+      workspaces.markFailed(id);
+      prevMgr?.mount();
+      ctx.win.webContents.send('workspace:switched', { id: ctx.activeWsId, failed: id });
+      broadcastWorkspaces(ctx);
+      return;
+    }
+  } else {
+    mgr.mount();
+  }
+
+  if (!mgr.active()) mgr.create(); // health repair: a hot workspace must always have a tab
+
+  ctx.activeWsId = id;
+  ctx.tabs = mgr;
+  touchLru(ctx, id);
+
+  // One atomic write of the whole snapshot (CC-0003).
+  store.setActiveWorkspaceId(id);
+  saveSession();
+  store.flush();
+
+  evictExcess(ctx);
+  ctx.win.webContents.send('workspace:switched', { id });
+  broadcastWorkspaces(ctx);
+
+  console.log(`[perf] workspace ${from} -> ${id} (${hydrated ? 'hydrated' : 'hot'}) in ${Date.now() - t0}ms`);
 }
 
 // --- window ----------------------------------------------------------------
@@ -115,7 +259,7 @@ async function createWindow({ incognito = false } = {}) {
     minWidth: 940,
     minHeight: 620,
     frame: false,
-    backgroundColor: incognito ? '#0d0a16' : '#0b0b0b',
+    backgroundColor: themeColors(incognito).bg, // from tokens.css, never a literal
     show: false,
     icon: path.join(__dirname, '..', '..', 'assets', 'icon.png'),
     webPreferences: {
@@ -126,25 +270,38 @@ async function createWindow({ incognito = false } = {}) {
   });
 
   if (!incognito && saved?.maximized) win.maximize();
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    win.show();
+    if (!incognito) console.log(`[perf] startup to first paint in ${Date.now() - startupT0}ms`);
+  });
 
   // The shell reads this to strip every trace of the signed-in identity —
   // account, pinned links, workspaces — from a private window's chrome.
   await win.loadFile(path.join(__dirname, '..', 'renderer', 'shell.html'), {
-    query: incognito ? { private: '1' } : {}
+    query: themeQuery(incognito)
   });
 
   // A private window belongs to no workspace — it browses the throwaway
   // partition and is deliberately outside the workspace system entirely.
+  const wsId = incognito ? null : workspaces.activeId;
   const partition = incognito ? PRIVATE_PARTITION : workspaces.partition();
 
-  const tabs = new TabManager(
+  let tabs;
+  tabs = new TabManager(
     win,
-    incognito ? null : history,
-    incognito ? () => {} : saveSession,
-    { partition }
+    incognito ? null : history.for(wsId),
+    incognito ? () => {} : (() => saveWorkspaceTabs(wsId, tabs)),
+    { partition, theme: { colors: themeColors(incognito), query: themeQuery(incognito) } }
   );
+
+  // ctx.tabs is always the ACTIVE workspace's manager; ctx.managers holds every
+  // hot workspace in this window (one per workspace, per ADR-0004).
   const ctx = { win, tabs, incognito, booted: false };
+  if (!incognito) {
+    ctx.managers = new Map([[wsId, tabs]]);
+    ctx.activeWsId = wsId;
+    ctx.lru = [wsId];
+  }
   wins.set(win.id, ctx);
   if (!incognito) mainCtx = ctx;
 
@@ -218,9 +375,18 @@ if (hasLock) {
   });
 
   app.whenReady().then(async () => {
-    history = new History(app.getPath('userData'));
+    history = new HistoryManager(app.getPath('userData'));
     store = new SessionStore(app.getPath('userData'));
     workspaces = new WorkspaceManager({ store, prepareSession });
+
+    // Set BEFORE the first window exists, so Chromium's own base background,
+    // scrollbars and form controls agree from the very first frame.
+    nativeTheme.themeSource = store.getTheme().mode || 'system';
+
+    // Follow the OS only while the user has actually chosen "system".
+    nativeTheme.on('updated', () => {
+      if ((store.getTheme().mode || 'system') === 'system') applyThemeEverywhere();
+    });
 
     // The default workspace resolves to the original persist:obsidian
     // partition, so existing cookies and logins survive the introduction of
@@ -240,6 +406,26 @@ if (hasLock) {
     prepareSession(PRIVATE_PARTITION);
 
     await createWindow();
+
+    // WorkspaceManager is the switching authority; the app layer reacts to it.
+    workspaces.on('activated', ({ id, previous }) => switchWorkspace(mainCtx, id, previous));
+    workspaces.on('created', () => broadcastWorkspaces());
+    workspaces.on('renamed', () => broadcastWorkspaces());
+    workspaces.on('failed', () => broadcastWorkspaces());
+    workspaces.on('removed', ({ id }) => {
+      const mgr = mainCtx?.managers.get(id);
+      if (mgr) {
+        mgr.destroy();
+        mainCtx.managers.delete(id);
+        mainCtx.lru = mainCtx.lru.filter(x => x !== id);
+      }
+      // The switch-away that precedes this event snapshots every hot manager,
+      // which re-adds the just-dropped workspace. Drop it again so no orphaned
+      // tab data lingers in session.json.
+      store.dropWorkspace(id);
+      history.drop(id); // and its per-workspace history file
+      broadcastWorkspaces();
+    });
 
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   });
@@ -324,6 +510,34 @@ onTab('tab:devtools', ctx => {
   if (wc) wc.isDevToolsOpened() ? wc.closeDevTools() : wc.openDevTools({ mode: 'right' });
 });
 
+// --- IPC: workspaces -------------------------------------------------------
+// All switching flows through WorkspaceManager (the authority); the app layer's
+// 'activated' subscriber performs the actual TabManager swap.
+
+ipcMain.handle('ws:list', () => workspaces.list());
+ipcMain.on('ws:create', (_e, name) => {
+  const id = workspaces.create(name);
+  workspaces.activate(id); // ensureSession runs here, before the switch mounts it
+});
+ipcMain.on('ws:rename', (_e, id, name) => workspaces.rename(id, name));
+ipcMain.on('ws:remove', (_e, id) => workspaces.remove(id));
+ipcMain.on('ws:switch', (_e, id) => workspaces.activate(id));
+
+// --- IPC: theme ------------------------------------------------------------
+
+ipcMain.handle('theme:get', () => ({
+  ...store.getTheme(),
+  resolved: resolvedMode(),
+  ambiences: tokens.ambiences()
+}));
+
+ipcMain.handle('theme:set', (_e, patch) => {
+  store.setTheme(patch || {});
+  store.flush();            // a preference must survive a hard kill
+  applyThemeEverywhere();
+  return { ...store.getTheme(), resolved: resolvedMode() };
+});
+
 // --- IPC: window -----------------------------------------------------------
 
 const onWin = (channel, fn) => ipcMain.on(channel, e => {
@@ -340,8 +554,9 @@ ipcMain.handle('win:isMaximized', e => !!ctxOrFocused(e.sender)?.win.isMaximized
 
 ipcMain.handle('adblock:stats', () => adblock?.stats ?? { blocked: 0 });
 
-ipcMain.handle('history:query', (_e, search) => history.query(search));
-ipcMain.handle('history:clear', (_e, sinceMs) => { history.clear(sinceMs); return true; });
+// History is scoped to the active workspace (WS-001).
+ipcMain.handle('history:query', (_e, search) => history.for(mainCtx?.activeWsId).query(search));
+ipcMain.handle('history:clear', (_e, sinceMs) => { history.for(mainCtx?.activeWsId).clear(sinceMs); return true; });
 
 // Clear cookies, cache, storage. `sinceMs` null means everything.
 // Scoped to the ACTIVE workspace — clearing data must never reach across an

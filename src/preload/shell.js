@@ -29,6 +29,12 @@ contextBridge.exposeInMainWorld('obsidian', {
 
   adblock: { stats: () => ipcRenderer.invoke('adblock:stats') },
 
+  theme: {
+    get: () => ipcRenderer.invoke('theme:get'),
+    set: patch => ipcRenderer.invoke('theme:set', patch),
+    onChanged: cb => ipcRenderer.on('theme:changed', (_e, t) => cb(t))
+  },
+
   history: {
     query: search => ipcRenderer.invoke('history:query', search),
     clear: sinceMs => ipcRenderer.invoke('history:clear', sinceMs)
@@ -36,6 +42,17 @@ contextBridge.exposeInMainWorld('obsidian', {
 
   data: {
     clear: (types, sinceMs = null) => ipcRenderer.invoke('data:clear', { types, sinceMs })
+  },
+
+  workspace: {
+    list: () => ipcRenderer.invoke('ws:list'),
+    create: name => ipcRenderer.send('ws:create', name),
+    rename: (id, name) => ipcRenderer.send('ws:rename', id, name),
+    remove: id => ipcRenderer.send('ws:remove', id),
+    switch: id => ipcRenderer.send('ws:switch', id),
+    onChanged: cb => ipcRenderer.on('ws:changed', (_e, list) => cb(list)),
+    onSwitching: cb => ipcRenderer.on('workspace:switching', (_e, d) => cb(d)),
+    onSwitched: cb => ipcRenderer.on('workspace:switched', (_e, d) => cb(d))
   },
 
   onFocusOmnibox: cb => ipcRenderer.on('omnibox:focus', cb),

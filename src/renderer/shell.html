@@ -6,6 +6,10 @@
         content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: https:;" />
   <title>Obsidian</title>
   <link rel="icon" href="../../assets/favicon.svg" />
+  <!-- Render-blocking, and BEFORE the stylesheets: sets data-theme on <html>
+       ahead of first style resolution so the window never flashes. -->
+  <script src="theme-boot.js"></script>
+  <link rel="stylesheet" href="tokens.css" />
   <link rel="stylesheet" href="shell.css" />
 </head>
 <body>
@@ -149,6 +153,9 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- covers the content hole during a workspace switch (CC-0002) -->
+  <div id="ws-overlay"><div class="ws-spinner"></div></div>
 
   <!-- ============ command palette (Ctrl+K) ============ -->
   <div id="palette" class="palette" hidden>

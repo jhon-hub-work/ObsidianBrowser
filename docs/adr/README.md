@@ -30,6 +30,9 @@ a document that can't drift is a document you can trust years later.
 | [0004](0004-workspace-isolation.md) | Workspaces isolate via Chromium session partitions | Accepted | 2026-07-21 |
 | [0005](0005-workspace-identity.md) | Workspace ids are immutable UUIDs; names are metadata | Accepted | 2026-07-22 |
 | [0006](0006-legacy-partition-reuse.md) | The default workspace keeps the original partition | Accepted | 2026-07-22 |
+| [0007](0007-tokens-in-one-css-file.md) | Design tokens live in one CSS file, which main parses | Accepted | 2026-07-22 |
+| [0008](0008-private-window-is-not-themeable.md) | The private window is not themeable | Accepted | 2026-07-22 |
+| [0009](0009-ambience-only-where-nothing-covers-it.md) | Ambience renders only where nothing covers it, and never animates | Accepted | 2026-07-22 |
 
 ## Template
 

@@ -1,21 +1,15 @@
 <!doctype html>
-<html lang="en">
+<!-- data-private is set in the markup, not by script: this page must be
+     unthemeable by construction, never by a runtime decision (ADR-0008). -->
+<html lang="en" data-private>
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
   <title>Private</title>
   <link rel="icon" href="../../assets/favicon.svg" />
+  <link rel="stylesheet" href="tokens.css" />
   <style>
-    :root {
-      --bg: #0d0a16;
-      --surface: #17112e;
-      --border: #2e2450;
-      --accent: #a78bfa;
-      --text: #e9e4f7;
-      --dim: #b0a4cf;
-      --muted: #7b719c;
-    }
 
     * { box-sizing: border-box; }
 

@@ -26,7 +26,8 @@ const LEGACY_PARTITION = 'persist:obsidian';
 const STATE = {
   COLD: 'cold',          // known, not hydrated — no TabManager
   HYDRATING: 'hydrating',// session being prepared
-  ACTIVE: 'active'       // current workspace
+  ACTIVE: 'active',      // current workspace
+  FAILED: 'failed'       // hydration failed — never switched into (CT-0002)
 };
 
 function partitionFor(id) {
@@ -143,6 +144,14 @@ class WorkspaceManager extends EventEmitter {
 
     this.emit('activated', { id, previous, partition: partitionFor(id) });
     return true;
+  }
+
+  // The app layer calls this when a workspace's TabManager/partition fails to
+  // hydrate, so the UI can show it as broken instead of switching into a void.
+  markFailed(id) {
+    if (!this.states.has(id)) return;
+    this.states.set(id, STATE.FAILED);
+    this.emit('failed', { id });
   }
 
   _persistMeta() {

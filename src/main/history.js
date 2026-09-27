@@ -1,13 +1,20 @@
 // Browsing history, persisted as plain JSON in userData.
 // Deliberately not electron-store: v10 is ESM-only and the rest of main is CJS.
+//
+// History is scoped PER WORKSPACE (ADR/ARCHITECTURE: workspace-first). Each
+// workspace owns its own history file; private windows record nothing. A global
+// "history across all workspaces" view is a possible later feature, but the
+// default — and the only thing that exists today — is per-workspace history.
 const path = require('path');
 const fs = require('fs');
 
 const MAX = 5000;
+const DEFAULT_ID = 'default';
 
 class History {
-  constructor(userDataPath) {
-    this.file = path.join(userDataPath, 'history.json');
+  // Takes a full file path so callers control per-workspace file naming.
+  constructor(file) {
+    this.file = file;
     this.entries = this._read();
     this._flushTimer = null;
   }
@@ -62,4 +69,32 @@ class History {
   }
 }
 
-module.exports = { History };
+// Hands out one History per workspace, created lazily. The default workspace
+// keeps the original history.json so existing history is never orphaned; other
+// workspaces get history-<id>.json.
+class HistoryManager {
+  constructor(userDataPath) {
+    this.dir = userDataPath;
+    this.byWorkspace = new Map();
+  }
+
+  for(id = DEFAULT_ID) {
+    if (!this.byWorkspace.has(id)) {
+      const file = id === DEFAULT_ID
+        ? path.join(this.dir, 'history.json')
+        : path.join(this.dir, `history-${id}.json`);
+      this.byWorkspace.set(id, new History(file));
+    }
+    return this.byWorkspace.get(id);
+  }
+
+  // Discards a deleted workspace's history file. Metadata lifecycle is the
+  // caller's concern; this only removes the on-disk history.
+  drop(id) {
+    if (id === DEFAULT_ID) return; // the default profile's history is never auto-deleted
+    this.byWorkspace.delete(id);
+    fs.unlink(path.join(this.dir, `history-${id}.json`), () => {});
+  }
+}
+
+module.exports = { History, HistoryManager };
